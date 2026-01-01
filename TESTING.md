@@ -106,7 +106,10 @@ sqlite3 /var/lib/jellyfin/data/library.db
 # Check if table exists
 .tables
 
-# Should show MediaSegments in the list
+# Expected output should include MediaSegments among other tables:
+# Items2                MediaSegments         UserDataKeys
+# MediaStreams          People                ...
+
 # Exit
 .quit
 ```

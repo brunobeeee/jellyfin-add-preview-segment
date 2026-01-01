@@ -104,10 +104,9 @@ public class AddPreviewSegmentTask : IScheduledTask
 
         _logger.LogInformation("Opening database connection to: {DbPath}", dbPath);
 
-        SqliteConnection? connection = null;
         try
         {
-            connection = new SqliteConnection($"Data Source={dbPath}");
+            using var connection = new SqliteConnection($"Data Source={dbPath}");
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
             // Check if the MediaSegments table exists before processing episodes
@@ -119,18 +118,13 @@ public class AddPreviewSegmentTask : IScheduledTask
             }
 
             _logger.LogInformation("MediaSegments table found, starting to process episodes");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error opening database connection to {DbPath}", dbPath);
-            connection?.Dispose();
-            return;
-        }
 
-        using (connection)
-        {
+            // Determine GUID format once at the start for efficiency
+            var guidFormat = await DetectGuidFormatAsync(connection, cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("Using GUID format: {Format}", guidFormat);
+
             foreach (var episode in episodesToProcess)
-        {
+            {
             if (cancellationToken.IsCancellationRequested)
             {
                 break;
@@ -154,7 +148,7 @@ public class AddPreviewSegmentTask : IScheduledTask
                         // Additional validation: ensure intro starts at least 1 second into the episode
                         if (introSegment.StartTicks >= TimeSpan.FromSeconds(1).Ticks)
                         {
-                            await AddSegmentAsync(connection, episode.Id, "Preview", 0, introSegment.StartTicks, cancellationToken).ConfigureAwait(false);
+                            await AddSegmentAsync(connection, episode.Id, "Preview", 0, introSegment.StartTicks, guidFormat, cancellationToken).ConfigureAwait(false);
                             addedCount++;
                             _logger.LogInformation(
                                 "Added preview segment to episode '{Name}' (S{Season}E{Episode}) from 0 to {Duration}s",
@@ -202,6 +196,10 @@ public class AddPreviewSegmentTask : IScheduledTask
         }
 
         _logger.LogInformation("Preview segment processing completed. Processed: {Processed}, Added: {Added}", processedCount, addedCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error opening database connection to {DbPath}", dbPath);
         }
     }
 
@@ -252,16 +250,16 @@ public class AddPreviewSegmentTask : IScheduledTask
         return segments;
     }
 
-    private async Task AddSegmentAsync(SqliteConnection connection, Guid itemId, string type, long startTicks, long endTicks, CancellationToken cancellationToken)
+    private async Task AddSegmentAsync(SqliteConnection connection, Guid itemId, string type, long startTicks, long endTicks, string guidFormat, CancellationToken cancellationToken)
     {
-        // First, determine which GUID format is used in the database by checking existing segments
-        var existingItemIdFormat = await GetItemIdFormatAsync(connection, itemId, cancellationToken).ConfigureAwait(false);
+        // Use the pre-determined GUID format for consistency
+        var itemIdFormatted = guidFormat == "WithHyphens" ? itemId.ToString("D") : itemId.ToString("N");
         
         using var command = connection.CreateCommand();
         command.CommandText = @"
             INSERT INTO MediaSegments (ItemId, StreamIndex, Type, StartTicks, EndTicks)
             VALUES (@itemId, NULL, @type, @startTicks, @endTicks)";
-        command.Parameters.AddWithValue("@itemId", existingItemIdFormat);
+        command.Parameters.AddWithValue("@itemId", itemIdFormatted);
         command.Parameters.AddWithValue("@type", type);
         command.Parameters.AddWithValue("@startTicks", startTicks);
         command.Parameters.AddWithValue("@endTicks", endTicks);
@@ -269,7 +267,7 @@ public class AddPreviewSegmentTask : IScheduledTask
         try
         {
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-            _logger.LogDebug("Successfully inserted preview segment for ItemId {ItemId} using format: {Format}", itemId, existingItemIdFormat);
+            _logger.LogDebug("Successfully inserted preview segment for ItemId {ItemId}", itemId);
         }
         catch (Exception ex)
         {
@@ -278,26 +276,23 @@ public class AddPreviewSegmentTask : IScheduledTask
         }
     }
 
-    private async Task<string> GetItemIdFormatAsync(SqliteConnection connection, Guid itemId, CancellationToken cancellationToken)
+    private async Task<string> DetectGuidFormatAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
-        // Check which format is used in the database for this item
+        // Detect the GUID format used in the database by checking existing segments
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT ItemId FROM MediaSegments WHERE ItemId = @itemId1 OR ItemId = @itemId2 LIMIT 1";
-        var itemIdWithoutHyphens = itemId.ToString("N");
-        var itemIdWithHyphens = itemId.ToString("D");
-        command.Parameters.AddWithValue("@itemId1", itemIdWithoutHyphens);
-        command.Parameters.AddWithValue("@itemId2", itemIdWithHyphens);
+        command.CommandText = "SELECT ItemId FROM MediaSegments LIMIT 1";
         
         var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         
-        // If we found an existing segment, use that format
         if (result != null)
         {
-            return result.ToString() ?? itemIdWithoutHyphens;
+            var itemIdString = result.ToString();
+            // Check if the GUID contains hyphens (36 chars with hyphens vs 32 without)
+            return itemIdString?.Length == 36 ? "WithHyphens" : "WithoutHyphens";
         }
         
         // Default to without hyphens (Jellyfin's typical format)
-        return itemIdWithoutHyphens;
+        return "WithoutHyphens";
     }
 
     /// <inheritdoc />
