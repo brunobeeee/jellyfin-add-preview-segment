@@ -111,8 +111,8 @@ if [ -f "$DB_FILE" ]; then
             echo -e "   ${GREEN}✓${NC} MediaSegments table exists"
             
             # Count segments
-            INTRO_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM MediaSegments WHERE Type = 'Intro';")
-            PREVIEW_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM MediaSegments WHERE Type = 'Preview';")
+            INTRO_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM MediaSegments WHERE Type = '4';")
+            PREVIEW_COUNT=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM MediaSegments WHERE Type = '5';")
             
             echo "   Segment counts:"
             echo "     - Intro segments: $INTRO_COUNT"

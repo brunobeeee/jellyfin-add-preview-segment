@@ -135,13 +135,28 @@ public class AddPreviewSegmentTask : IScheduledTask
                 // Query segments for this episode
                 var segments = await GetSegmentsAsync(connection, episode.Id, cancellationToken).ConfigureAwait(false);
                 
+                _logger.LogDebug(
+                    "Episode '{Name}' (S{Season}E{Episode}, ID: {Id}) has {Count} segments: {Types}",
+                    episode.Name,
+                    episode.ParentIndexNumber,
+                    episode.IndexNumber,
+                    episode.Id,
+                    segments.Count,
+                    string.Join(", ", segments.Select(s => $"Type={s.Type} Start={TimeSpan.FromTicks(s.StartTicks).TotalSeconds:F1}s End={TimeSpan.FromTicks(s.EndTicks).TotalSeconds:F1}s")));
+                
                 // Type values: 4=Intro, 5=Preview
                 var hasIntro = segments.Any(s => s.Type == "4");
                 var hasPreview = segments.Any(s => s.Type == "5");
 
+                _logger.LogDebug(
+                    "Episode '{Name}' - hasIntro: {HasIntro}, hasPreview: {HasPreview}",
+                    episode.Name,
+                    hasIntro,
+                    hasPreview);
+
                 if (hasIntro && !hasPreview)
                 {
-                    var introSegment = segments.FirstOrDefault(s => s.Type == "2");
+                    var introSegment = segments.FirstOrDefault(s => s.Type == "4");
                     
                     // Validate intro segment before adding preview
                     if (introSegment != null && introSegment.StartTicks > 0)
@@ -181,6 +196,14 @@ public class AddPreviewSegmentTask : IScheduledTask
                 {
                     _logger.LogDebug(
                         "Episode '{Name}' (S{Season}E{Episode}) already has preview segment",
+                        episode.Name,
+                        episode.ParentIndexNumber,
+                        episode.IndexNumber);
+                }
+                else if (!hasIntro)
+                {
+                    _logger.LogDebug(
+                        "Episode '{Name}' (S{Season}E{Episode}) has no intro segment - skipping",
                         episode.Name,
                         episode.ParentIndexNumber,
                         episode.IndexNumber);
