@@ -1,0 +1,97 @@
+name: Release Plugin
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ./Jellyfin.Plugin.PreviewSegment
+
+      - name: Build plugin
+        run: dotnet build -c Release --no-restore
+        working-directory: ./Jellyfin.Plugin.PreviewSegment
+
+      - name: Create plugin directory structure
+        run: |
+          mkdir -p plugin-release/Jellyfin.Plugin.PreviewSegment
+          cp Jellyfin.Plugin.PreviewSegment/bin/Release/net8.0/Jellyfin.Plugin.PreviewSegment.dll \
+            plugin-release/Jellyfin.Plugin.PreviewSegment/
+
+      - name: Create zip file
+        run: |
+          cd plugin-release
+          zip -r ../jellyfin-plugin-previewsegment_${{ steps.get_version.outputs.VERSION }}.zip \
+            Jellyfin.Plugin.PreviewSegment/
+          cd ..
+
+      - name: Calculate SHA256 checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(sha256sum \
+            jellyfin-plugin-previewsegment_${{ steps.get_version.outputs.VERSION }}.zip | \
+            cut -d ' ' -f 1)
+          echo "CHECKSUM=$CHECKSUM" >> $GITHUB_OUTPUT
+          echo "Checksum: $CHECKSUM"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            jellyfin-plugin-previewsegment_${{ steps.get_version.outputs.VERSION }}.zip
+            Jellyfin.Plugin.PreviewSegment/bin/Release/net8.0/Jellyfin.Plugin.PreviewSegment.dll
+          body: |
+            ## Jellyfin Preview Segment Plugin v${{ steps.get_version.outputs.VERSION }}
+
+            ### Installation for Docker/Manual
+
+            1. Download `jellyfin-plugin-previewsegment_${{ steps.get_version.outputs.VERSION }}.zip`
+            2. Extract the zip file
+            3. Copy the `Jellyfin.Plugin.PreviewSegment` folder to your
+               Jellyfin plugins directory:
+               - Docker: `/config/plugins/`
+               - Linux: `/var/lib/jellyfin/plugins/`
+               - Windows: `%PROGRAMDATA%\Jellyfin\Server\plugins\`
+            4. Restart Jellyfin
+
+            ### Alternative: Direct DLL Installation
+
+            1. Download `Jellyfin.Plugin.PreviewSegment.dll`
+            2. Create a directory: `plugins/Jellyfin.Plugin.PreviewSegment/`
+            3. Place the DLL in that directory
+            4. Restart Jellyfin
+
+            ### Checksums
+
+            - SHA256: `${{ steps.checksum.outputs.CHECKSUM }}`
+
+            ### What's Changed
+
+            See commit history for detailed changes.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

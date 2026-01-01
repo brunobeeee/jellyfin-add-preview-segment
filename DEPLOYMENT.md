@@ -9,6 +9,54 @@
 
 ### Installation Steps
 
+#### Method 1: Install from GitHub Releases (Recommended for Docker)
+
+1. **Download the Plugin**
+   - Go to the [Releases page](https://github.com/brunobeeee/jellyfin-add-preview-segment/releases)
+   - Download the latest `jellyfin-plugin-previewsegment_X.X.X.zip` file
+
+2. **Extract the Plugin**
+   ```bash
+   unzip jellyfin-plugin-previewsegment_X.X.X.zip
+   ```
+
+3. **Install to Jellyfin**
+   Copy the extracted folder to your Jellyfin plugins directory:
+   
+   - **Docker**:
+     ```bash
+     # Assuming your Jellyfin config is at /path/to/jellyfin/config
+     cp -r Jellyfin.Plugin.PreviewSegment /path/to/jellyfin/config/plugins/
+     ```
+     
+   - **Linux**:
+     ```bash
+     sudo cp -r Jellyfin.Plugin.PreviewSegment /var/lib/jellyfin/plugins/
+     ```
+     
+   - **Windows**:
+     Copy to `%PROGRAMDATA%\Jellyfin\Server\plugins\`
+
+4. **Restart Jellyfin**
+   - **Docker**: `docker restart jellyfin` (or your container name)
+   - **Linux with systemd**: `sudo systemctl restart jellyfin`
+   - **Windows**: Restart the Jellyfin service
+
+5. **Configure the Plugin**
+   - Open Jellyfin web interface
+   - Go to Dashboard → Plugins
+   - Find "Preview Segment" and click to configure
+   - Select the libraries you want to process
+   - Click Save
+
+6. **Run the Task**
+   - Go to Dashboard → Scheduled Tasks
+   - Find "Add Preview Segments"
+   - Click the play button to run immediately
+   - Or wait for the scheduled run (daily at 2:00 AM by default)
+
+#### Method 2: Build from Source
+
 1. **Build the Plugin**
    ```bash
    cd Jellyfin.Plugin.PreviewSegment
@@ -30,8 +78,8 @@
 
    Example:
    ```bash
-   mkdir -p /var/lib/jellyfin/plugins/PreviewSegment
-   cp bin/Release/net8.0/Jellyfin.Plugin.PreviewSegment.dll /var/lib/jellyfin/plugins/PreviewSegment/
+   mkdir -p /var/lib/jellyfin/plugins/Jellyfin.Plugin.PreviewSegment
+   cp bin/Release/net8.0/Jellyfin.Plugin.PreviewSegment.dll /var/lib/jellyfin/plugins/Jellyfin.Plugin.PreviewSegment/
    ```
 
 4. **Restart Jellyfin**
@@ -51,6 +99,43 @@
    - Find "Add Preview Segments"
    - Click the play button to run immediately
    - Or wait for the scheduled run (daily at 2:00 AM by default)
+
+### For Docker Users
+
+If you're running Jellyfin in Docker, the GitHub Releases method is recommended:
+
+1. **Download the release package** from GitHub
+2. **Extract it** to your Jellyfin config directory's plugins folder
+3. **Restart your container**: `docker restart jellyfin`
+
+Example with Docker Compose:
+```bash
+# Navigate to your Jellyfin config directory
+cd /path/to/jellyfin/config
+
+# Download the latest release (replace X.X.X with actual version)
+wget https://github.com/brunobeeee/jellyfin-add-preview-segment/releases/download/vX.X.X/jellyfin-plugin-previewsegment_X.X.X.zip
+
+# Extract to plugins directory
+unzip jellyfin-plugin-previewsegment_X.X.X.zip -d plugins/
+
+# Restart Jellyfin container
+docker restart jellyfin
+```
+
+### Automated Builds
+
+The plugin is automatically built and released via GitHub Actions:
+- **On every push to main**: A build is triggered to verify the code compiles
+- **On version tags** (e.g., `v1.0.0`): A full release is created with:
+  - Pre-packaged ZIP file ready for installation
+  - Individual DLL file for manual installation
+  - SHA256 checksums for verification
+
+To create a new release:
+1. Tag the commit: `git tag v1.0.0`
+2. Push the tag: `git push origin v1.0.0`
+3. GitHub Actions will automatically build and create the release
 
 ## Configuration
 
@@ -195,6 +280,16 @@ For libraries with thousands of episodes:
 ## Updates
 
 To update the plugin:
+
+### From GitHub Releases (Recommended)
+1. Download the new version from [Releases](https://github.com/brunobeeee/jellyfin-add-preview-segment/releases)
+2. Stop Jellyfin
+3. Remove old plugin folder
+4. Extract and copy new version
+5. Start Jellyfin
+6. Verify in logs
+
+### From Source Build
 1. Build new version
 2. Stop Jellyfin
 3. Replace DLL
