@@ -278,10 +278,14 @@ public class AddPreviewSegmentTask : IScheduledTask
         // Use the pre-determined GUID format and convert to uppercase as Jellyfin stores GUIDs in uppercase
         var itemIdFormatted = guidFormat == "WithHyphens" ? itemId.ToString("D").ToUpperInvariant() : itemId.ToString("N").ToUpperInvariant();
         
+        // Generate a new GUID for the segment Id
+        var segmentId = guidFormat == "WithHyphens" ? Guid.NewGuid().ToString("D").ToUpperInvariant() : Guid.NewGuid().ToString("N").ToUpperInvariant();
+        
         using var command = connection.CreateCommand();
         command.CommandText = @"
-            INSERT INTO MediaSegments (ItemId, SegmentProviderId, Type, StartTicks, EndTicks)
-            VALUES (@itemId, @segmentProviderId, @type, @startTicks, @endTicks)";
+            INSERT INTO MediaSegments (Id, ItemId, SegmentProviderId, Type, StartTicks, EndTicks)
+            VALUES (@id, @itemId, @segmentProviderId, @type, @startTicks, @endTicks)";
+        command.Parameters.AddWithValue("@id", segmentId);
         command.Parameters.AddWithValue("@itemId", itemIdFormatted);
         command.Parameters.AddWithValue("@segmentProviderId", "jellyfin-plugin-previewsegment");
         command.Parameters.AddWithValue("@type", type);
