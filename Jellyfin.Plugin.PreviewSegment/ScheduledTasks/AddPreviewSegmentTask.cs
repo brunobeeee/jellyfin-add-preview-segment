@@ -144,9 +144,9 @@ public class AddPreviewSegmentTask : IScheduledTask
                     segments.Count,
                     string.Join(", ", segments.Select(s => $"Type={s.Type} Start={TimeSpan.FromTicks(s.StartTicks).TotalSeconds:F1}s End={TimeSpan.FromTicks(s.EndTicks).TotalSeconds:F1}s")));
                 
-                // Type values: 4=Intro, 5=Preview
-                var hasIntro = segments.Any(s => s.Type == "4");
-                var hasPreview = segments.Any(s => s.Type == "5");
+                // Type values: 5=Intro, 2=Preview
+                var hasIntro = segments.Any(s => s.Type == "5");
+                var hasPreview = segments.Any(s => s.Type == "2");
 
                 _logger.LogDebug(
                     "Episode '{Name}' - hasIntro: {HasIntro}, hasPreview: {HasPreview}",
@@ -156,7 +156,7 @@ public class AddPreviewSegmentTask : IScheduledTask
 
                 if (hasIntro && !hasPreview)
                 {
-                    var introSegment = segments.FirstOrDefault(s => s.Type == "4");
+                    var introSegment = segments.FirstOrDefault(s => s.Type == "5");
                     
                     // Validate intro segment before adding preview
                     if (introSegment != null && introSegment.StartTicks > 0)
@@ -164,7 +164,7 @@ public class AddPreviewSegmentTask : IScheduledTask
                         // Additional validation: ensure intro starts at least 1 second into the episode
                         if (introSegment.StartTicks >= TimeSpan.FromSeconds(1).Ticks)
                         {
-                            await AddSegmentAsync(connection, episode.Id, "5", 0, introSegment.StartTicks, guidFormat, cancellationToken).ConfigureAwait(false);
+                            await AddSegmentAsync(connection, episode.Id, "2", 0, introSegment.StartTicks, guidFormat, cancellationToken).ConfigureAwait(false);
                             addedCount++;
                             _logger.LogInformation(
                                 "Added preview segment to episode '{Name}' (S{Season}E{Episode}) from 0 to {Duration}s",
