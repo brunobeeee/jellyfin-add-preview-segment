@@ -94,7 +94,7 @@ public class AddPreviewSegmentTask : IScheduledTask
 
         var processedCount = 0;
         var addedCount = 0;
-        var dbPath = System.IO.Path.Combine(_appPaths.DataPath, "library.db");
+        var dbPath = System.IO.Path.Combine(_appPaths.DataPath, "jellyfin.db");
 
         if (!System.IO.File.Exists(dbPath))
         {
