@@ -93,6 +93,14 @@ public class AddPreviewSegmentTask : IScheduledTask
         using var connection = new SqliteConnection($"Data Source={dbPath}");
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
+        // Check if the MediaSegments table exists before processing episodes
+        var tableExists = await CheckTableExistsAsync(connection, "MediaSegments", cancellationToken).ConfigureAwait(false);
+        if (!tableExists)
+        {
+            _logger.LogWarning("MediaSegments table does not exist in the database. This feature may require Jellyfin 10.10 or later.");
+            return;
+        }
+
         foreach (var episode in episodesToProcess)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -102,14 +110,6 @@ public class AddPreviewSegmentTask : IScheduledTask
 
             try
             {
-                // Check if the MediaSegments table exists
-                var tableExists = await CheckTableExistsAsync(connection, "MediaSegments", cancellationToken).ConfigureAwait(false);
-                if (!tableExists)
-                {
-                    _logger.LogWarning("MediaSegments table does not exist in the database. This feature may require Jellyfin 10.10 or later.");
-                    return;
-                }
-
                 // Query segments for this episode
                 var segments = await GetSegmentsAsync(connection, episode.Id, cancellationToken).ConfigureAwait(false);
                 
