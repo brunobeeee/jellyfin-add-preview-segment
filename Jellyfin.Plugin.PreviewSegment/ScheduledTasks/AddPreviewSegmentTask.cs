@@ -241,9 +241,9 @@ public class AddPreviewSegmentTask : IScheduledTask
     {
         var segments = new List<SegmentInfo>();
         
-        // Try both GUID formats - with and without hyphens
-        var itemIdWithoutHyphens = itemId.ToString("N");
-        var itemIdWithHyphens = itemId.ToString("D");
+        // Convert to uppercase as Jellyfin stores GUIDs in uppercase
+        var itemIdWithoutHyphens = itemId.ToString("N").ToUpperInvariant();
+        var itemIdWithHyphens = itemId.ToString("D").ToUpperInvariant();
         
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT Id, Type, StartTicks, EndTicks FROM MediaSegments WHERE ItemId = @itemId1 OR ItemId = @itemId2";
@@ -275,8 +275,8 @@ public class AddPreviewSegmentTask : IScheduledTask
 
     private async Task AddSegmentAsync(SqliteConnection connection, Guid itemId, string type, long startTicks, long endTicks, string guidFormat, CancellationToken cancellationToken)
     {
-        // Use the pre-determined GUID format for consistency
-        var itemIdFormatted = guidFormat == "WithHyphens" ? itemId.ToString("D") : itemId.ToString("N");
+        // Use the pre-determined GUID format and convert to uppercase as Jellyfin stores GUIDs in uppercase
+        var itemIdFormatted = guidFormat == "WithHyphens" ? itemId.ToString("D").ToUpperInvariant() : itemId.ToString("N").ToUpperInvariant();
         
         using var command = connection.CreateCommand();
         command.CommandText = @"
