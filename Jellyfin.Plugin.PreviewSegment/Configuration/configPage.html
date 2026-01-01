@@ -30,7 +30,7 @@
             document.getElementById('PreviewSegmentConfigPage').addEventListener('pageshow', function () {
                 Dashboard.showLoadingMsg();
                 var page = this;
-                ApiClient.getJSON(ApiClient.getUrl('System/Configuration/PreviewSegment')).then(function (config) {
+                ApiClient.getJSON(ApiClient.getUrl('System/Configuration/Jellyfin.Plugin.PreviewSegment')).then(function (config) {
                     ApiClient.getJSON(ApiClient.getUrl('Library/MediaFolders')).then(function (libraries) {
                         var selectLibraries = page.querySelector('#selectLibraries');
                         selectLibraries.innerHTML = ''; // Clear existing options
@@ -58,7 +58,7 @@
                     return option.value;
                 });
 
-                ApiClient.getJSON(ApiClient.getUrl('System/Configuration/PreviewSegment')).then(function (config) {
+                ApiClient.getJSON(ApiClient.getUrl('System/Configuration/Jellyfin.Plugin.PreviewSegment')).then(function (config) {
                     config.LibraryIds = libraryIds;
                     ApiClient.updatePluginConfiguration(PreviewSegmentConfig.pluginUniqueId, config).then(function (result) {
                         Dashboard.processPluginConfigurationUpdateResult(result);
