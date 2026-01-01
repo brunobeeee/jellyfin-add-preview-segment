@@ -317,7 +317,7 @@ public class AddPreviewSegmentTask : IScheduledTask
             VALUES (@id, @itemId, @segmentProviderId, @type, @startTicks, @endTicks)";
         command.Parameters.AddWithValue("@id", segmentId);
         command.Parameters.AddWithValue("@itemId", itemIdFormatted);
-        command.Parameters.AddWithValue("@segmentProviderId", "jellyfin-plugin-previewsegment");
+        command.Parameters.AddWithValue("@segmentProviderId", "b0338b450421c081992860f1d02f261f"); // Spoofed provider ID from Intro Skipper plugin
         command.Parameters.AddWithValue("@type", type);
         command.Parameters.AddWithValue("@startTicks", startTicks);
         command.Parameters.AddWithValue("@endTicks", endTicks);
