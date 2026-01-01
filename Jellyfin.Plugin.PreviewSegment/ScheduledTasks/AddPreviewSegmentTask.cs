@@ -135,12 +135,13 @@ public class AddPreviewSegmentTask : IScheduledTask
                 // Query segments for this episode
                 var segments = await GetSegmentsAsync(connection, episode.Id, cancellationToken).ConfigureAwait(false);
                 
-                var hasIntro = segments.Any(s => s.Type == "Intro");
-                var hasPreview = segments.Any(s => s.Type == "Preview");
+                // Type values: 4=Intro, 5=Preview
+                var hasIntro = segments.Any(s => s.Type == "4");
+                var hasPreview = segments.Any(s => s.Type == "5");
 
                 if (hasIntro && !hasPreview)
                 {
-                    var introSegment = segments.FirstOrDefault(s => s.Type == "Intro");
+                    var introSegment = segments.FirstOrDefault(s => s.Type == "4");
                     
                     // Validate intro segment before adding preview
                     if (introSegment != null && introSegment.StartTicks > 0)
@@ -148,7 +149,7 @@ public class AddPreviewSegmentTask : IScheduledTask
                         // Additional validation: ensure intro starts at least 1 second into the episode
                         if (introSegment.StartTicks >= TimeSpan.FromSeconds(1).Ticks)
                         {
-                            await AddSegmentAsync(connection, episode.Id, "Preview", 0, introSegment.StartTicks, guidFormat, cancellationToken).ConfigureAwait(false);
+                            await AddSegmentAsync(connection, episode.Id, "5", 0, introSegment.StartTicks, guidFormat, cancellationToken).ConfigureAwait(false);
                             addedCount++;
                             _logger.LogInformation(
                                 "Added preview segment to episode '{Name}' (S{Season}E{Episode}) from 0 to {Duration}s",
@@ -222,7 +223,7 @@ public class AddPreviewSegmentTask : IScheduledTask
         var itemIdWithHyphens = itemId.ToString("D");
         
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, StreamIndex, Type, StartTicks, EndTicks FROM MediaSegments WHERE ItemId = @itemId1 OR ItemId = @itemId2";
+        command.CommandText = "SELECT Id, Type, StartTicks, EndTicks FROM MediaSegments WHERE ItemId = @itemId1 OR ItemId = @itemId2";
         command.Parameters.AddWithValue("@itemId1", itemIdWithoutHyphens);
         command.Parameters.AddWithValue("@itemId2", itemIdWithHyphens);
         
@@ -234,10 +235,9 @@ public class AddPreviewSegmentTask : IScheduledTask
                 segments.Add(new SegmentInfo
                 {
                     Id = reader.GetInt32(0),
-                    StreamIndex = reader.IsDBNull(1) ? (int?)null : reader.GetInt32(1),
-                    Type = reader.GetString(2),
-                    StartTicks = reader.GetInt64(3),
-                    EndTicks = reader.GetInt64(4)
+                    Type = reader.GetString(1),
+                    StartTicks = reader.GetInt64(2),
+                    EndTicks = reader.GetInt64(3)
                 });
             }
         }
@@ -257,9 +257,10 @@ public class AddPreviewSegmentTask : IScheduledTask
         
         using var command = connection.CreateCommand();
         command.CommandText = @"
-            INSERT INTO MediaSegments (ItemId, StreamIndex, Type, StartTicks, EndTicks)
-            VALUES (@itemId, NULL, @type, @startTicks, @endTicks)";
+            INSERT INTO MediaSegments (ItemId, SegmentProviderId, Type, StartTicks, EndTicks)
+            VALUES (@itemId, @segmentProviderId, @type, @startTicks, @endTicks)";
         command.Parameters.AddWithValue("@itemId", itemIdFormatted);
+        command.Parameters.AddWithValue("@segmentProviderId", "jellyfin-plugin-previewsegment");
         command.Parameters.AddWithValue("@type", type);
         command.Parameters.AddWithValue("@startTicks", startTicks);
         command.Parameters.AddWithValue("@endTicks", endTicks);
@@ -311,7 +312,6 @@ public class AddPreviewSegmentTask : IScheduledTask
     private class SegmentInfo
     {
         public int Id { get; set; }
-        public int? StreamIndex { get; set; }
         public string Type { get; set; } = string.Empty;
         public long StartTicks { get; set; }
         public long EndTicks { get; set; }
