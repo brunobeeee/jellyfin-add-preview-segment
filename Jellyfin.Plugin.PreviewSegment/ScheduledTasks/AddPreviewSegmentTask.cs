@@ -118,10 +118,10 @@ public class AddPreviewSegmentTask : IScheduledTask
 
                 if (hasIntro && !hasPreview)
                 {
-                    var introSegment = segments.First(s => s.Type == "Intro");
+                    var introSegment = segments.FirstOrDefault(s => s.Type == "Intro");
                     
                     // Add preview segment from 0 to the start of the intro
-                    if (introSegment.StartTicks > 0)
+                    if (introSegment != null && introSegment.StartTicks > 0)
                     {
                         await AddSegmentAsync(connection, episode.Id, "Preview", 0, introSegment.StartTicks, cancellationToken).ConfigureAwait(false);
                         addedCount++;

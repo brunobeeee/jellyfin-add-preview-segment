@@ -33,10 +33,17 @@
                 ApiClient.getJSON(ApiClient.getUrl('System/Configuration/PreviewSegment')).then(function (config) {
                     ApiClient.getJSON(ApiClient.getUrl('Library/MediaFolders')).then(function (libraries) {
                         var selectLibraries = page.querySelector('#selectLibraries');
-                        selectLibraries.innerHTML = libraries.Items.map(function (library) {
+                        selectLibraries.innerHTML = ''; // Clear existing options
+                        
+                        libraries.Items.forEach(function (library) {
                             var isSelected = config.LibraryIds && config.LibraryIds.indexOf(library.Id) !== -1;
-                            return '<option value="' + library.Id + '"' + (isSelected ? ' selected' : '') + '>' + library.Name + '</option>';
-                        }).join('');
+                            var option = document.createElement('option');
+                            option.value = library.Id;
+                            option.textContent = library.Name; // Use textContent to prevent XSS
+                            option.selected = isSelected;
+                            selectLibraries.appendChild(option);
+                        });
+                        
                         Dashboard.hideLoadingMsg();
                     });
                 });
