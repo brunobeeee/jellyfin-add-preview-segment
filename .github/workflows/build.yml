@@ -1,0 +1,36 @@
+name: Build Plugin
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ./Jellyfin.Plugin.PreviewSegment
+
+      - name: Build plugin
+        run: dotnet build -c Release --no-restore
+        working-directory: ./Jellyfin.Plugin.PreviewSegment
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-dll
+          path: |
+            Jellyfin.Plugin.PreviewSegment/bin/Release/net8.0/Jellyfin.Plugin.PreviewSegment.dll
+          retention-days: 7
