@@ -135,13 +135,12 @@ public class AddPreviewSegmentTask : IScheduledTask
                 // Query segments for this episode
                 var segments = await GetSegmentsAsync(connection, episode.Id, cancellationToken).ConfigureAwait(false);
                 
-                // Type values: 4=Intro, 5=Preview
-                var hasIntro = segments.Any(s => s.Type == "4");
-                var hasPreview = segments.Any(s => s.Type == "5");
+                var hasIntro = segments.Any(s => s.Type == "Intro");
+                var hasPreview = segments.Any(s => s.Type == "Preview");
 
                 if (hasIntro && !hasPreview)
                 {
-                    var introSegment = segments.FirstOrDefault(s => s.Type == "4");
+                    var introSegment = segments.FirstOrDefault(s => s.Type == "Intro");
                     
                     // Validate intro segment before adding preview
                     if (introSegment != null && introSegment.StartTicks > 0)
@@ -149,7 +148,7 @@ public class AddPreviewSegmentTask : IScheduledTask
                         // Additional validation: ensure intro starts at least 1 second into the episode
                         if (introSegment.StartTicks >= TimeSpan.FromSeconds(1).Ticks)
                         {
-                            await AddSegmentAsync(connection, episode.Id, "5", 0, introSegment.StartTicks, guidFormat, cancellationToken).ConfigureAwait(false);
+                            await AddSegmentAsync(connection, episode.Id, "Preview", 0, introSegment.StartTicks, guidFormat, cancellationToken).ConfigureAwait(false);
                             addedCount++;
                             _logger.LogInformation(
                                 "Added preview segment to episode '{Name}' (S{Season}E{Episode}) from 0 to {Duration}s",
