@@ -86,23 +86,71 @@ public class AddPreviewSegmentTask : IScheduledTask
 
         _logger.LogInformation("Found {Count} episodes to check", episodesToProcess.Count);
 
-        var processedCount = 0;
-        var addedCount = 0;
-        var dbPath = System.IO.Path.Combine(_appPaths.DataPath, "library.db");
-
-        using var connection = new SqliteConnection($"Data Source={dbPath}");
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-
-        // Check if the MediaSegments table exists before processing episodes
-        var tableExists = await CheckTableExistsAsync(connection, "MediaSegments", cancellationToken).ConfigureAwait(false);
-        if (!tableExists)
+        if (episodesToProcess.Count == 0)
         {
-            _logger.LogWarning("MediaSegments table does not exist in the database. This feature may require Jellyfin 10.10 or later.");
+            _logger.LogInformation("No episodes found to process");
             return;
         }
 
-        foreach (var episode in episodesToProcess)
+        var processedCount = 0;
+        var addedCount = 0;
+        var dbPath = System.IO.Path.Combine(_appPaths.DataPath, "jellyfin.db");
+
+        if (!System.IO.File.Exists(dbPath))
         {
+            _logger.LogError("Database file not found at path: {DbPath}", dbPath);
+            return;
+        }
+
+        _logger.LogInformation("Opening database connection to: {DbPath}", dbPath);
+
+        try
+        {
+            // Configure connection string for concurrent access
+            var connectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = dbPath,
+                Mode = SqliteOpenMode.ReadWriteCreate,
+                Cache = SqliteCacheMode.Shared
+            }.ToString();
+
+            using var connection = new SqliteConnection(connectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+            // Set busy timeout to 30 seconds to handle concurrent access
+            using (var timeoutCommand = connection.CreateCommand())
+            {
+                timeoutCommand.CommandText = "PRAGMA busy_timeout = 30000";
+                await timeoutCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            // Enable WAL mode for better concurrent access (if not already enabled)
+            using (var walCommand = connection.CreateCommand())
+            {
+                walCommand.CommandText = "PRAGMA journal_mode = WAL";
+                var result = await walCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                _logger.LogDebug("Database journal mode: {Mode}", result);
+            }
+
+            // Check if the MediaSegments table exists before processing episodes
+            var tableExists = await CheckTableExistsAsync(connection, "MediaSegments", cancellationToken).ConfigureAwait(false);
+            if (!tableExists)
+            {
+                _logger.LogWarning("MediaSegments table does not exist in the database. This feature may require Jellyfin 10.10 or later.");
+                return;
+            }
+
+            _logger.LogInformation("MediaSegments table found, starting to process episodes");
+
+            // Determine GUID format once at the start for efficiency
+            var guidFormat = await DetectGuidFormatAsync(connection, cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("Using GUID format: {Format}", guidFormat);
+
+            // Begin transaction for all inserts
+            using var transaction = connection.BeginTransaction();
+
+            foreach (var episode in episodesToProcess)
+            {
             if (cancellationToken.IsCancellationRequested)
             {
                 break;
@@ -113,37 +161,100 @@ public class AddPreviewSegmentTask : IScheduledTask
                 // Query segments for this episode
                 var segments = await GetSegmentsAsync(connection, episode.Id, cancellationToken).ConfigureAwait(false);
                 
-                var hasIntro = segments.Any(s => s.Type == "Intro");
-                var hasPreview = segments.Any(s => s.Type == "Preview");
+                _logger.LogDebug(
+                    "Episode '{Name}' (S{Season}E{Episode}, ID: {Id}) has {Count} segments: {Types}",
+                    episode.Name,
+                    episode.ParentIndexNumber,
+                    episode.IndexNumber,
+                    episode.Id,
+                    segments.Count,
+                    string.Join(", ", segments.Select(s => $"Type={s.Type} Start={TimeSpan.FromTicks(s.StartTicks).TotalSeconds:F1}s End={TimeSpan.FromTicks(s.EndTicks).TotalSeconds:F1}s")));
+                
+                // Type values: 5=Intro, 2=Preview
+                var hasIntro = segments.Any(s => s.Type == "5");
+                var hasPreview = segments.Any(s => s.Type == "2");
+
+                _logger.LogDebug(
+                    "Episode '{Name}' - hasIntro: {HasIntro}, hasPreview: {HasPreview}",
+                    episode.Name,
+                    hasIntro,
+                    hasPreview);
 
                 if (hasIntro && !hasPreview)
                 {
-                    var introSegment = segments.FirstOrDefault(s => s.Type == "Intro");
+                    var introSegment = segments.FirstOrDefault(s => s.Type == "5");
                     
-                    // Add preview segment from 0 to the start of the intro
+                    // Validate intro segment before adding preview
                     if (introSegment != null && introSegment.StartTicks > 0)
                     {
-                        await AddSegmentAsync(connection, episode.Id, "Preview", 0, introSegment.StartTicks, cancellationToken).ConfigureAwait(false);
-                        addedCount++;
-                        _logger.LogInformation(
-                            "Added preview segment to episode '{Name}' (S{Season}E{Episode}) from 0 to {Duration}s",
+                        // Additional validation: ensure intro starts at least 1 second into the episode
+                        if (introSegment.StartTicks >= TimeSpan.FromSeconds(1).Ticks)
+                        {
+                            await AddSegmentAsync(connection, episode.Id, "2", 0, introSegment.StartTicks, guidFormat, cancellationToken).ConfigureAwait(false);
+                            addedCount++;
+                            _logger.LogInformation(
+                                "Added preview segment to episode '{Name}' (S{Season}E{Episode}) from 0 to {Duration}s",
+                                episode.Name,
+                                episode.ParentIndexNumber,
+                                episode.IndexNumber,
+                                TimeSpan.FromTicks(introSegment.StartTicks).TotalSeconds);
+                        }
+                        else
+                        {
+                            _logger.LogDebug(
+                                "Skipping episode '{Name}' (S{Season}E{Episode}) - intro starts too early at {Duration}s",
+                                episode.Name,
+                                episode.ParentIndexNumber,
+                                episode.IndexNumber,
+                                TimeSpan.FromTicks(introSegment.StartTicks).TotalSeconds);
+                        }
+                    }
+                    else if (introSegment != null)
+                    {
+                        _logger.LogDebug(
+                            "Skipping episode '{Name}' (S{Season}E{Episode}) - intro starts at 0 ticks",
                             episode.Name,
                             episode.ParentIndexNumber,
-                            episode.IndexNumber,
-                            TimeSpan.FromTicks(introSegment.StartTicks).TotalSeconds);
+                            episode.IndexNumber);
                     }
+                }
+                else if (hasIntro && hasPreview)
+                {
+                    _logger.LogDebug(
+                        "Episode '{Name}' (S{Season}E{Episode}) already has preview segment",
+                        episode.Name,
+                        episode.ParentIndexNumber,
+                        episode.IndexNumber);
+                }
+                else if (!hasIntro)
+                {
+                    _logger.LogDebug(
+                        "Episode '{Name}' (S{Season}E{Episode}) has no intro segment - skipping",
+                        episode.Name,
+                        episode.ParentIndexNumber,
+                        episode.IndexNumber);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing episode '{Name}'", episode.Name);
+                _logger.LogError(ex, "Error processing episode '{Name}' (ID: {Id})", episode.Name, episode.Id);
+                // Continue processing other episodes even if one fails
             }
 
             processedCount++;
             progress?.Report((double)processedCount / episodesToProcess.Count * 100);
         }
 
+        // Commit all database changes
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        _logger.LogDebug("Transaction committed successfully");
+
         _logger.LogInformation("Preview segment processing completed. Processed: {Processed}, Added: {Added}", processedCount, addedCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error opening database connection to {DbPath}", dbPath);
+        }
     }
 
     private async Task<bool> CheckTableExistsAsync(SqliteConnection connection, string tableName, CancellationToken cancellationToken)
@@ -160,38 +271,99 @@ public class AddPreviewSegmentTask : IScheduledTask
     {
         var segments = new List<SegmentInfo>();
         
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, StreamIndex, Type, StartTicks, EndTicks FROM MediaSegments WHERE ItemId = @itemId";
-        command.Parameters.AddWithValue("@itemId", itemId.ToString("N"));
+        // Convert to uppercase as Jellyfin stores GUIDs in uppercase
+        var itemIdWithoutHyphens = itemId.ToString("N").ToUpperInvariant();
+        var itemIdWithHyphens = itemId.ToString("D").ToUpperInvariant();
         
-        using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, Type, StartTicks, EndTicks FROM MediaSegments WHERE ItemId = @itemId1 OR ItemId = @itemId2";
+        command.Parameters.AddWithValue("@itemId1", itemIdWithoutHyphens);
+        command.Parameters.AddWithValue("@itemId2", itemIdWithHyphens);
+        
+        try
         {
-            segments.Add(new SegmentInfo
+            using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                Id = reader.GetInt32(0),
-                StreamIndex = reader.IsDBNull(1) ? (int?)null : reader.GetInt32(1),
-                Type = reader.GetString(2),
-                StartTicks = reader.GetInt64(3),
-                EndTicks = reader.GetInt64(4)
-            });
+                segments.Add(new SegmentInfo
+                {
+                    Id = reader.GetInt32(0),
+                    Type = reader.GetString(1),
+                    StartTicks = reader.GetInt64(2),
+                    EndTicks = reader.GetInt64(3)
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading segments for ItemId {ItemId}", itemId);
+            throw;
         }
         
         return segments;
     }
 
-    private async Task AddSegmentAsync(SqliteConnection connection, Guid itemId, string type, long startTicks, long endTicks, CancellationToken cancellationToken)
+    private async Task AddSegmentAsync(SqliteConnection connection, Guid itemId, string type, long startTicks, long endTicks, string guidFormat, CancellationToken cancellationToken)
     {
+        // Use the pre-determined GUID format and convert to uppercase as Jellyfin stores GUIDs in uppercase
+        var itemIdFormatted = guidFormat == "WithHyphens" ? itemId.ToString("D").ToUpperInvariant() : itemId.ToString("N").ToUpperInvariant();
+        
+        // Generate a new GUID for the segment Id
+        var segmentId = guidFormat == "WithHyphens" ? Guid.NewGuid().ToString("D").ToUpperInvariant() : Guid.NewGuid().ToString("N").ToUpperInvariant();
+        
         using var command = connection.CreateCommand();
         command.CommandText = @"
-            INSERT INTO MediaSegments (ItemId, StreamIndex, Type, StartTicks, EndTicks)
-            VALUES (@itemId, NULL, @type, @startTicks, @endTicks)";
-        command.Parameters.AddWithValue("@itemId", itemId.ToString("N"));
+            INSERT INTO MediaSegments (Id, ItemId, SegmentProviderId, Type, StartTicks, EndTicks)
+            VALUES (@id, @itemId, @segmentProviderId, @type, @startTicks, @endTicks)";
+        command.Parameters.AddWithValue("@id", segmentId);
+        command.Parameters.AddWithValue("@itemId", itemIdFormatted);
+        command.Parameters.AddWithValue("@segmentProviderId", "b0338b450421c081992860f1d02f261f"); // Spoofed provider ID from Intro Skipper plugin
         command.Parameters.AddWithValue("@type", type);
         command.Parameters.AddWithValue("@startTicks", startTicks);
         command.Parameters.AddWithValue("@endTicks", endTicks);
         
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        // Retry logic for handling database locked scenarios
+        const int maxRetries = 3;
+        for (int retry = 0; retry < maxRetries; retry++)
+        {
+            try
+            {
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                _logger.LogDebug("Successfully inserted preview segment for ItemId {ItemId}", itemId);
+                return;
+            }
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 5 && retry < maxRetries - 1) // SQLITE_BUSY
+            {
+                _logger.LogWarning("Database locked, retry {Retry}/{MaxRetries} for ItemId {ItemId}", retry + 1, maxRetries, itemId);
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * (retry + 1)), cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inserting segment for ItemId {ItemId}", itemId);
+                throw;
+            }
+        }
+        
+        _logger.LogError("Failed to insert segment after {MaxRetries} retries for ItemId {ItemId}", maxRetries, itemId);
+    }
+
+    private async Task<string> DetectGuidFormatAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        // Detect the GUID format used in the database by checking existing segments
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT ItemId FROM MediaSegments LIMIT 1";
+        
+        var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        
+        if (result != null)
+        {
+            var itemIdString = result.ToString();
+            // Check if the GUID contains hyphens (36 chars with hyphens vs 32 without)
+            return itemIdString?.Length == 36 ? "WithHyphens" : "WithoutHyphens";
+        }
+        
+        // Default to without hyphens (Jellyfin's typical format)
+        return "WithoutHyphens";
     }
 
     /// <inheritdoc />
@@ -210,7 +382,6 @@ public class AddPreviewSegmentTask : IScheduledTask
     private class SegmentInfo
     {
         public int Id { get; set; }
-        public int? StreamIndex { get; set; }
         public string Type { get; set; } = string.Empty;
         public long StartTicks { get; set; }
         public long EndTicks { get; set; }
