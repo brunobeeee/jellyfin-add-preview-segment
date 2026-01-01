@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Preview Segment</title>
+</head>
+<body>
+    <div id="PreviewSegmentConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="PreviewSegmentConfigForm">
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="selectLibraries">Libraries to process:</label>
+                        <select is="emby-select" id="selectLibraries" name="selectLibraries" class="emby-select-withcolor emby-select" multiple="multiple"></select>
+                        <div class="fieldDescription">Select the libraries where episodes should be checked for preview segments.</div>
+                    </div>
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var PreviewSegmentConfig = {
+                pluginUniqueId: '8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f'
+            };
+
+            document.getElementById('PreviewSegmentConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                var page = this;
+                ApiClient.getJSON(ApiClient.getUrl('System/Configuration/PreviewSegment')).then(function (config) {
+                    ApiClient.getJSON(ApiClient.getUrl('Library/MediaFolders')).then(function (libraries) {
+                        var selectLibraries = page.querySelector('#selectLibraries');
+                        selectLibraries.innerHTML = ''; // Clear existing options
+                        
+                        libraries.Items.forEach(function (library) {
+                            var isSelected = config.LibraryIds && config.LibraryIds.indexOf(library.Id) !== -1;
+                            var option = document.createElement('option');
+                            option.value = library.Id;
+                            option.textContent = library.Name; // Use textContent to prevent XSS
+                            option.selected = isSelected;
+                            selectLibraries.appendChild(option);
+                        });
+                        
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+            });
+
+            document.getElementById('PreviewSegmentConfigForm').addEventListener('submit', function (e) {
+                Dashboard.showLoadingMsg();
+                var form = this;
+                var selectLibraries = form.querySelector('#selectLibraries');
+                var selectedOptions = Array.from(selectLibraries.selectedOptions);
+                var libraryIds = selectedOptions.map(function (option) {
+                    return option.value;
+                });
+
+                ApiClient.getJSON(ApiClient.getUrl('System/Configuration/PreviewSegment')).then(function (config) {
+                    config.LibraryIds = libraryIds;
+                    ApiClient.updatePluginConfiguration(PreviewSegmentConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+
+                e.preventDefault();
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
