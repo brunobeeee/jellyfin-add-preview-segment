@@ -80,7 +80,7 @@ public class AddPreviewSegmentTask : IScheduledTask
                 Recursive = true
             };
 
-            var episodes = _libraryManager.GetItemList(query).OfType<Episode>();
+            var episodes = _libraryManager.GetItemsResult(query).Items.OfType<Episode>();
             episodesToProcess.AddRange(episodes);
         }
 

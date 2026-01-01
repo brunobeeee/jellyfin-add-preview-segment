@@ -30,6 +30,9 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <inheritdoc />
     public override Guid Id => Guid.Parse("8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f");
 
+    /// <inheritdoc />
+    public override string ConfigurationFileName => "Jellyfin.Plugin.PreviewSegment.xml";
+
     /// <summary>
     /// Gets the current plugin instance.
     /// </summary>
