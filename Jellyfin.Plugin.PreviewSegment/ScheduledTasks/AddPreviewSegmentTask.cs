@@ -106,8 +106,31 @@ public class AddPreviewSegmentTask : IScheduledTask
 
         try
         {
-            using var connection = new SqliteConnection($"Data Source={dbPath}");
+            // Configure connection string for concurrent access
+            var connectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = dbPath,
+                Mode = SqliteOpenMode.ReadWriteCreate,
+                Cache = SqliteCacheMode.Shared
+            }.ToString();
+
+            using var connection = new SqliteConnection(connectionString);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+            // Set busy timeout to 30 seconds to handle concurrent access
+            using (var timeoutCommand = connection.CreateCommand())
+            {
+                timeoutCommand.CommandText = "PRAGMA busy_timeout = 30000";
+                await timeoutCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            // Enable WAL mode for better concurrent access (if not already enabled)
+            using (var walCommand = connection.CreateCommand())
+            {
+                walCommand.CommandText = "PRAGMA journal_mode = WAL";
+                var result = await walCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+                _logger.LogDebug("Database journal mode: {Mode}", result);
+            }
 
             // Check if the MediaSegments table exists before processing episodes
             var tableExists = await CheckTableExistsAsync(connection, "MediaSegments", cancellationToken).ConfigureAwait(false);
@@ -122,6 +145,9 @@ public class AddPreviewSegmentTask : IScheduledTask
             // Determine GUID format once at the start for efficiency
             var guidFormat = await DetectGuidFormatAsync(connection, cancellationToken).ConfigureAwait(false);
             _logger.LogDebug("Using GUID format: {Format}", guidFormat);
+
+            // Begin transaction for all inserts
+            using var transaction = connection.BeginTransaction();
 
             foreach (var episode in episodesToProcess)
             {
@@ -219,6 +245,10 @@ public class AddPreviewSegmentTask : IScheduledTask
             progress?.Report((double)processedCount / episodesToProcess.Count * 100);
         }
 
+        // Commit all database changes
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        _logger.LogDebug("Transaction committed successfully");
+
         _logger.LogInformation("Preview segment processing completed. Processed: {Processed}, Added: {Added}", processedCount, addedCount);
         }
         catch (Exception ex)
@@ -292,16 +322,29 @@ public class AddPreviewSegmentTask : IScheduledTask
         command.Parameters.AddWithValue("@startTicks", startTicks);
         command.Parameters.AddWithValue("@endTicks", endTicks);
         
-        try
+        // Retry logic for handling database locked scenarios
+        const int maxRetries = 3;
+        for (int retry = 0; retry < maxRetries; retry++)
         {
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-            _logger.LogDebug("Successfully inserted preview segment for ItemId {ItemId}", itemId);
+            try
+            {
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                _logger.LogDebug("Successfully inserted preview segment for ItemId {ItemId}", itemId);
+                return;
+            }
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 5 && retry < maxRetries - 1) // SQLITE_BUSY
+            {
+                _logger.LogWarning("Database locked, retry {Retry}/{MaxRetries} for ItemId {ItemId}", retry + 1, maxRetries, itemId);
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * (retry + 1)), cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error inserting segment for ItemId {ItemId}", itemId);
+                throw;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error inserting segment for ItemId {ItemId}", itemId);
-            throw;
-        }
+        
+        _logger.LogError("Failed to insert segment after {MaxRetries} retries for ItemId {ItemId}", maxRetries, itemId);
     }
 
     private async Task<string> DetectGuidFormatAsync(SqliteConnection connection, CancellationToken cancellationToken)
