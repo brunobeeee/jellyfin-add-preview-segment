@@ -11,9 +11,9 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default paths (can be overridden)
-JELLYFIN_DATA_PATH="/var/lib/jellyfin"
-JELLYFIN_CONFIG_PATH="/var/lib/jellyfin/config"
-JELLYFIN_LOG_PATH="/var/log/jellyfin"
+JELLYFIN_DATA_PATH="/config/data"
+JELLYFIN_CONFIG_PATH="/config"
+JELLYFIN_LOG_PATH="/config/log"
 
 echo "=============================================="
 echo "  Jellyfin Preview Segment Plugin Diagnostic"
@@ -66,7 +66,7 @@ echo ""
 
 # Test 2: Check plugin installation
 echo "2. Checking plugin installation..."
-PLUGIN_DIR="$JELLYFIN_DATA_PATH/plugins/Jellyfin.Plugin.PreviewSegment"
+PLUGIN_DIR="$JELLYFIN_CONFIG_PATH/plugins/Jellyfin.Plugin.PreviewSegment"
 if [ -d "$PLUGIN_DIR" ]; then
     echo -e "   ${GREEN}✓${NC} Plugin directory exists: $PLUGIN_DIR"
     
@@ -83,7 +83,7 @@ echo ""
 
 # Test 3: Check plugin loaded in logs
 echo "3. Checking if plugin loaded successfully..."
-LOG_FILE="$JELLYFIN_LOG_PATH/jellyfin.log"
+LOG_FILE="$JELLYFIN_LOG_PATH/.jellyfin-log"
 if [ -f "$LOG_FILE" ]; then
     if grep -q "Preview Segment" "$LOG_FILE"; then
         echo -e "   ${GREEN}✓${NC} Plugin found in logs"
@@ -99,7 +99,7 @@ echo ""
 
 # Test 4: Check database
 echo "4. Checking database..."
-DB_FILE="$JELLYFIN_DATA_PATH/data/library.db"
+DB_FILE="$JELLYFIN_DATA_PATH/jellyfin.db"
 if [ -f "$DB_FILE" ]; then
     echo -e "   ${GREEN}✓${NC} Database file exists: $DB_FILE"
     echo "   Database size: $(du -h "$DB_FILE" | cut -f1)"
