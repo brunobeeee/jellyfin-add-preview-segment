@@ -81,11 +81,13 @@ Example:
   "version": "1.0.0.0",
   "changelog": "Initial release with automated builds",
   "targetAbi": "10.9.0.0",
-  "sourceUrl": "https://github.com/brunobeeee/jellyfin-add-preview-segment/releases/download/v1.0.0/jellyfin-plugin-previewsegment_1.0.0.0.zip",
+  "sourceUrl": "https://github.com/brunobeeee/jellyfin-add-preview-segment/releases/download/v1.0.0/jellyfin-plugin-previewsegment_1.0.0.zip",
   "checksum": "abc123...",
   "timestamp": "2026-01-01T12:00:00Z"
 }
 ```
+
+**Note**: The git tag version (e.g., `v1.0.0`) uses 3-part semantic versioning, while the plugin version in build.json uses 4-part versioning (e.g., `1.0.0.0`). The release workflow uses the 3-part version from the tag for file names.
 
 ## Version Numbering
 
@@ -93,6 +95,14 @@ Follow [Semantic Versioning](https://semver.org/):
 - **MAJOR** (X.0.0): Incompatible API changes or major features
 - **MINOR** (1.X.0): New functionality in a backward-compatible manner
 - **PATCH** (1.0.X): Backward-compatible bug fixes
+
+### Version Format Notes
+
+- **Git tags**: Use 3-part semantic versioning (e.g., `v1.0.0`)
+- **Plugin version** (in build.json): Uses 4-part versioning (e.g., `1.0.0.0`)
+- **Release files**: Named using the 3-part version from the git tag
+
+For most releases, you can use `.0` as the fourth component in build.json.
 
 ## Troubleshooting
 
