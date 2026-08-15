@@ -58,10 +58,17 @@ Running the task on a seeded Intro:
 - Storage-format facts confirmed for 10.11: GUIDs are stored **UPPERCASE with hyphens**
   (`400D4F07-64B8-…`); the API returns lowercase-no-hyphens. `MediaSegments.Type` is **INTEGER**.
 
-### Conclusion / recommended fix (not yet applied)
-Directly `INSERT`-ing into `MediaSegments` with a foreign, spoofed provider id is the wrong approach
-and cannot work reliably: Jellyfin only surfaces segments from registered, enabled providers, and the
-schema/paths shift between releases. The plugin should instead register its **own** segment provider
-(`IMediaSegmentProvider`) and/or use `IMediaSegmentManager.CreateSegmentAsync(...)` with its **own**
-provider id, and target `net8.0` / `targetAbi 10.11.x`. That makes segments first-class and lets
-Jellyfin manage storage + surfacing.
+### Fix (implemented and verified with this harness)
+The direct `INSERT`s were replaced with a proper **media segment provider**
+(`Providers/PreviewSegmentProvider.cs`), registered via `PluginServiceRegistrator.cs`. Jellyfin's
+built-in **Extract Media Segments** task now invokes the provider, which reads the episode's Intro
+via `IMediaSegmentManager.GetSegmentsAsync(...)` and returns a `Preview` segment. Jellyfin stores it
+under the plugin's **own registered provider id** (`MD5("preview segment")`), so it is surfaced by
+`GET /MediaSegments/{itemId}`.
+
+Verified end-to-end on Jellyfin 10.11.11: after seeding an Intro and running **Extract Media
+Segments**, the `Preview` row is created under our provider id **and returned by the API** (the old
+approach wrote the row but it was filtered out). The plugin now targets `net9.0` / `targetAbi
+10.11.0.0` (Jellyfin 10.11 runs on .NET 9); build with the `dotnet/sdk:9.0` container. There is no
+longer any plugin config or custom scheduled task — enablement is per-library via Jellyfin's *Media
+Segment Providers* settings.

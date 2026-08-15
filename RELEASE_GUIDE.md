@@ -80,7 +80,7 @@ Example:
 {
   "version": "1.0.0.0",
   "changelog": "Initial release with automated builds",
-  "targetAbi": "10.9.0.0",
+  "targetAbi": "10.11.0.0",
   "sourceUrl": "https://github.com/brunobeeee/jellyfin-add-preview-segment/releases/download/v1.0.0/jellyfin-plugin-previewsegment_1.0.0.zip",
   "checksum": "abc123...",
   "timestamp": "2026-01-01T12:00:00Z"
@@ -139,7 +139,7 @@ If the automated workflow fails, you can create a release manually:
 2. Create the directory structure:
    ```bash
    mkdir -p release/Jellyfin.Plugin.PreviewSegment
-   cp bin/Release/net8.0/Jellyfin.Plugin.PreviewSegment.dll release/Jellyfin.Plugin.PreviewSegment/
+   cp bin/Release/net9.0/Jellyfin.Plugin.PreviewSegment.dll release/Jellyfin.Plugin.PreviewSegment/
    ```
 
 3. Create a ZIP file:

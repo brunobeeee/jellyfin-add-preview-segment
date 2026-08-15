@@ -6,7 +6,7 @@
 # (Microsoft.Data.Sqlite, SQLitePCLRaw.*) — used to test the "missing dependency" theory.
 source "$(dirname "$0")/lib.sh"
 
-BUILD_OUT="$PLUGIN_PROJ_DIR/bin/Release/net8.0"
+BUILD_OUT="$PLUGIN_PROJ_DIR/bin/Release/net9.0"
 DLL="$BUILD_OUT/Jellyfin.Plugin.PreviewSegment.dll"
 [ -f "$DLL" ] || { err "DLL not found. Run 01-build-plugin.sh first."; exit 1; }
 
@@ -28,7 +28,7 @@ if [ "${COPY_DEPS:-0}" = "1" ]; then
 fi
 
 # --- Write meta.json ---------------------------------------------------------
-TARGET_ABI="${TARGET_ABI:-10.10.0.0}"
+TARGET_ABI="${TARGET_ABI:-10.11.0.0}"
 python3 - "$PLUGIN_DIR/meta.json" "$PLUGIN_GUID" "$PLUGIN_NAME" "$PLUGIN_VERSION" "$TARGET_ABI" <<'PY'
 import json, sys, datetime
 path, guid, name, version, abi = sys.argv[1:6]
@@ -41,7 +41,7 @@ meta = {
     "overview": "Adds a preview segment from 0s to the intro start for episodes with an intro.",
     "owner": "brunobeeee",
     "targetAbi": abi,
-    "framework": "net8.0",
+    "framework": "net9.0",
     "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     "version": version,
     "status": "Active",

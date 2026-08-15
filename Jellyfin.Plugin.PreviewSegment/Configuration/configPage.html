@@ -5,70 +5,32 @@
     <title>Preview Segment</title>
 </head>
 <body>
-    <div id="PreviewSegmentConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div id="PreviewSegmentConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
         <div data-role="content">
             <div class="content-primary">
-                <form id="PreviewSegmentConfigForm">
-                    <div class="selectContainer">
-                        <label class="selectLabel" for="selectLibraries">Libraries to process:</label>
-                        <select is="emby-select" id="selectLibraries" name="selectLibraries" class="emby-select-withcolor emby-select" multiple="multiple"></select>
-                        <div class="fieldDescription">Select the libraries where episodes should be checked for preview segments.</div>
-                    </div>
-                    <div>
-                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
-                            <span>Save</span>
-                        </button>
-                    </div>
-                </form>
+                <h1>Preview Segment</h1>
+                <p>
+                    This plugin adds a <strong>Preview</strong> media segment (from the start of the
+                    episode to the beginning of the intro) for every episode that already has an
+                    <strong>Intro</strong> segment.
+                </p>
+                <p>There is nothing to configure here. It works as a media segment provider:</p>
+                <ol>
+                    <li>
+                        Make sure your episodes already have <em>Intro</em> segments (for example via
+                        the Intro Skipper plugin).
+                    </li>
+                    <li>
+                        Enable the <strong>Preview Segment</strong> provider for the relevant libraries
+                        under <em>Dashboard &rarr; Libraries &rarr; (your library) &rarr; Media Segment Providers</em>.
+                    </li>
+                    <li>
+                        Run <em>Dashboard &rarr; Scheduled Tasks &rarr; Extract Media Segments</em>
+                        (or wait for its scheduled run). Preview segments are then created and shown by clients.
+                    </li>
+                </ol>
             </div>
         </div>
-        <script type="text/javascript">
-            var PreviewSegmentConfig = {
-                pluginUniqueId: '8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f'
-            };
-
-            document.getElementById('PreviewSegmentConfigPage').addEventListener('pageshow', function () {
-                Dashboard.showLoadingMsg();
-                var page = this;
-                ApiClient.getPluginConfiguration(PreviewSegmentConfig.pluginUniqueId).then(function (config) {
-                    ApiClient.getJSON(ApiClient.getUrl('Library/MediaFolders')).then(function (libraries) {
-                        var selectLibraries = page.querySelector('#selectLibraries');
-                        selectLibraries.innerHTML = ''; // Clear existing options
-                        
-                        libraries.Items.forEach(function (library) {
-                            var isSelected = config.LibraryIds && config.LibraryIds.indexOf(library.Id) !== -1;
-                            var option = document.createElement('option');
-                            option.value = library.Id;
-                            option.textContent = library.Name; // Use textContent to prevent XSS
-                            option.selected = isSelected;
-                            selectLibraries.appendChild(option);
-                        });
-                        
-                        Dashboard.hideLoadingMsg();
-                    });
-                });
-            });
-
-            document.getElementById('PreviewSegmentConfigForm').addEventListener('submit', function (e) {
-                Dashboard.showLoadingMsg();
-                var form = this;
-                var selectLibraries = form.querySelector('#selectLibraries');
-                var selectedOptions = Array.from(selectLibraries.selectedOptions);
-                var libraryIds = selectedOptions.map(function (option) {
-                    return option.value;
-                });
-
-                ApiClient.getPluginConfiguration(PreviewSegmentConfig.pluginUniqueId).then(function (config) {
-                    config.LibraryIds = libraryIds;
-                    ApiClient.updatePluginConfiguration(PreviewSegmentConfig.pluginUniqueId, config).then(function (result) {
-                        Dashboard.processPluginConfigurationUpdateResult(result);
-                    });
-                });
-
-                e.preventDefault();
-                return false;
-            });
-        </script>
     </div>
 </body>
 </html>

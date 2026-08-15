@@ -19,7 +19,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'
 
       - name: Restore dependencies
         run: dotnet restore
@@ -34,5 +34,5 @@ jobs:
         with:
           name: plugin-dll
           path: |
-            Jellyfin.Plugin.PreviewSegment/bin/Release/net8.0/Jellyfin.Plugin.PreviewSegment.dll
+            Jellyfin.Plugin.PreviewSegment/bin/Release/net9.0/Jellyfin.Plugin.PreviewSegment.dll
           retention-days: 7
