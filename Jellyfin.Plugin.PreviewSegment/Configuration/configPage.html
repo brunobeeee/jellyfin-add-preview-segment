@@ -8,29 +8,97 @@
     <div id="PreviewSegmentConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
         <div data-role="content">
             <div class="content-primary">
-                <h1>Preview Segment</h1>
-                <p>
-                    This plugin adds a <strong>Preview</strong> media segment (from the start of the
-                    episode to the beginning of the intro) for every episode that already has an
-                    <strong>Intro</strong> segment.
-                </p>
-                <p>There is nothing to configure here. It works as a media segment provider:</p>
-                <ol>
-                    <li>
-                        Make sure your episodes already have <em>Intro</em> segments (for example via
-                        the Intro Skipper plugin).
-                    </li>
-                    <li>
-                        Enable the <strong>Preview Segment</strong> provider for the relevant libraries
-                        under <em>Dashboard &rarr; Libraries &rarr; (your library) &rarr; Media Segment Providers</em>.
-                    </li>
-                    <li>
-                        Run <em>Dashboard &rarr; Scheduled Tasks &rarr; Extract Media Segments</em>
-                        (or wait for its scheduled run). Preview segments are then created and shown by clients.
-                    </li>
-                </ol>
+                <form id="PreviewSegmentConfigForm">
+                    <h1>Preview Segment</h1>
+                    <p>
+                        This plugin adds a <strong>Preview</strong> media segment (from the start of the
+                        episode to the beginning of the intro) for every episode that already has an
+                        <strong>Intro</strong> segment (e.g. from the Intro Skipper plugin).
+                    </p>
+                    <p>
+                        Select the libraries that should receive Preview segments below, then run
+                        <em>Dashboard &rarr; Scheduled Tasks &rarr; Extract Media Segments</em>
+                        (or wait for its scheduled run).
+                    </p>
+                    <div class="fieldDescription" style="margin-bottom:1em;">
+                        Note: use this list, <strong>not</strong> the per-library
+                        &ldquo;Media Segment Providers&rdquo; checkboxes &mdash; that native toggle is
+                        ineffective on Jellyfin&nbsp;10.11. Leaving every library unchecked disables the
+                        plugin entirely.
+                    </div>
+
+                    <h3 class="checkboxListLabel">Enabled libraries</h3>
+                    <div id="PreviewSegmentLibraryList" class="checkboxList paperList" style="padding:0.5em 1em;"></div>
+
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button" style="margin-top:1em;">
+                        <span>Save</span>
+                    </button>
+                </form>
             </div>
         </div>
+
+        <script type="text/javascript">
+            (function () {
+                var pluginId = '8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f';
+
+                function normalize(id) {
+                    return String(id).replace(/-/g, '').toLowerCase();
+                }
+
+                function loadConfig(page) {
+                    Dashboard.showLoadingMsg();
+                    Promise.all([
+                        ApiClient.getVirtualFolders(),
+                        ApiClient.getPluginConfiguration(pluginId)
+                    ]).then(function (results) {
+                        var folders = results[0] || [];
+                        var config = results[1] || {};
+                        var enabled = (config.EnabledLibraries || []).map(normalize);
+
+                        var html = '';
+                        folders.forEach(function (folder) {
+                            var id = String(folder.ItemId);
+                            var checked = enabled.indexOf(normalize(id)) !== -1 ? ' checked' : '';
+                            html += '<label class="emby-checkbox-label">'
+                                + '<input type="checkbox" is="emby-checkbox" class="chkPreviewLibrary" data-id="'
+                                + id + '"' + checked + ' />'
+                                + '<span>' + folder.Name + '</span></label>';
+                        });
+                        if (!folders.length) {
+                            html = '<p>No libraries found.</p>';
+                        }
+                        page.querySelector('#PreviewSegmentLibraryList').innerHTML = html;
+                        Dashboard.hideLoadingMsg();
+                    });
+                }
+
+                function saveConfig(page) {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                        var ids = [];
+                        page.querySelectorAll('.chkPreviewLibrary').forEach(function (el) {
+                            if (el.checked) {
+                                ids.push(el.getAttribute('data-id'));
+                            }
+                        });
+                        config.EnabledLibraries = ids;
+                        ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+                }
+
+                var page = document.querySelector('#PreviewSegmentConfigPage');
+                page.addEventListener('pageshow', function () {
+                    loadConfig(page);
+                });
+                page.querySelector('#PreviewSegmentConfigForm').addEventListener('submit', function (e) {
+                    saveConfig(page);
+                    e.preventDefault();
+                    return false;
+                });
+            })();
+        </script>
     </div>
 </body>
 </html>
