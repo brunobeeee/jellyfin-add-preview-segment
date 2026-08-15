@@ -1,12 +1,21 @@
 [
-  {
-    "guid": "8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f",
-    "name": "Preview Segment",
-    "description": "Registers a media segment provider that returns a Preview segment from the start of an episode to the beginning of its Intro segment.",
-    "overview": "Adds a Preview media segment to episodes that already have an Intro segment.",
-    "owner": "brunobeeee",
-    "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/brunobeeee/jellyfin-add-preview-segment/main/logo.png",
-    "versions": []
-  }
+    {
+        "guid": "8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f",
+        "name": "Preview Segment",
+        "description": "Registers a media segment provider with Jellyfin. For every supported episode that already has an Intro segment, the provider returns a Preview segment from the start of the episode (0s) to the beginning of the intro, so clients can offer a \"preview\" skip. Applicability is controlled entirely by Jellyfin's own per-library Media Segment Providers settings.",
+        "overview": "Adds a Preview media segment to episodes that already have an Intro segment.",
+        "owner": "brunobeeee",
+        "category": "General",
+        "imageUrl": "https://raw.githubusercontent.com/brunobeeee/jellyfin-add-preview-segment/main/logo.png",
+        "versions": [
+            {
+                "version": "2.0.0.0",
+                "changelog": "See the GitHub release notes for this version.",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/brunobeeee/jellyfin-add-preview-segment/releases/download/v2.0.0/preview-segment_2.0.0.0.zip",
+                "checksum": "1ff57fb90fc9c563fffeb34f7f132f40",
+                "timestamp": "2026-08-15T19:44:46Z"
+            }
+        ]
+    }
 ]
