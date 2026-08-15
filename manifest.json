@@ -1,0 +1,12 @@
+[
+  {
+    "guid": "8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f",
+    "name": "Preview Segment",
+    "description": "Registers a media segment provider that returns a Preview segment from the start of an episode to the beginning of its Intro segment.",
+    "overview": "Adds a Preview media segment to episodes that already have an Intro segment.",
+    "owner": "brunobeeee",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/brunobeeee/jellyfin-add-preview-segment/main/logo.png",
+    "versions": []
+  }
+]

@@ -27,10 +27,26 @@ correctly returned to clients (`GET /MediaSegments/{itemId}`) and shown in the p
 
 ## Installation
 
-### Option 1: Install from GitHub Releases (recommended for Docker)
+### Option 1: Install via the plugin repository (recommended)
+
+Add this repository to Jellyfin once and the **Update Plugins** scheduled task keeps the plugin up to
+date automatically:
+
+1. In Jellyfin, go to **Dashboard → Plugins → Repositories → `+`**.
+2. Add a repository with any name and this URL:
+   ```
+   https://raw.githubusercontent.com/brunobeeee/jellyfin-add-preview-segment/main/manifest.json
+   ```
+3. Go to **Dashboard → Plugins → Catalog**, find **Preview Segment**, and click **Install**.
+4. Restart Jellyfin when prompted.
+
+New releases are picked up automatically by the **Update Plugins** task (or install updates manually
+from the catalog).
+
+### Option 2: Install from GitHub Releases (manual)
 
 1. Go to the [Releases page](https://github.com/brunobeeee/jellyfin-add-preview-segment/releases).
-2. Download the latest `jellyfin-plugin-previewsegment_X.X.X.zip` and extract it.
+2. Download the latest `preview-segment_X.X.X.X.zip` and extract it.
 3. Copy the `Jellyfin.Plugin.PreviewSegment` folder (DLL **and** `meta.json`) into your Jellyfin
    plugins directory:
    - **Docker**: `/config/plugins/`
@@ -73,10 +89,12 @@ docker run --rm -v "$PWD":/src -w /src/Jellyfin.Plugin.PreviewSegment \
 end-to-end test the plugin against the latest Jellyfin release. See
 [dev-test/README.md](dev-test/README.md).
 
-## Automated builds
+## Automated builds & releases
 
-GitHub Actions builds the plugin on every push/PR to `main`, and on a pushed `v*.*.*` tag it creates
-a release with a packaged ZIP (DLL + `meta.json`) and a SHA256 checksum. See
+GitHub Actions builds the plugin on every push/PR to `main`. On a pushed `v*.*.*` tag, the release
+workflow uses [jprm](https://github.com/oddstr13/jellyfin-plugin-repository-manager) to package a ZIP
+(DLL + `meta.json`), publish a GitHub Release, and append the new version — with its MD5 checksum —
+to [`manifest.json`](manifest.json), which is what the plugin repository above serves. See
 [RELEASE_GUIDE.md](RELEASE_GUIDE.md).
 
 ## License

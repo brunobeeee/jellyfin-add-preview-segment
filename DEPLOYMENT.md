@@ -16,9 +16,20 @@ access is involved.
 
 ## Installation
 
-### Method 1: Install from GitHub Releases (recommended for Docker)
+### Method 1: Install via the plugin repository (recommended)
 
-1. Download the latest `jellyfin-plugin-previewsegment_X.X.X.zip` from the
+1. In Jellyfin, go to **Dashboard → Plugins → Repositories → `+`** and add this URL (any name):
+   ```
+   https://raw.githubusercontent.com/brunobeeee/jellyfin-add-preview-segment/main/manifest.json
+   ```
+2. Go to **Dashboard → Plugins → Catalog**, select **Preview Segment**, and click **Install**.
+3. Restart Jellyfin when prompted.
+
+Updates are then applied automatically by the **Update Plugins** scheduled task.
+
+### Method 2: Install from GitHub Releases (manual)
+
+1. Download the latest `preview-segment_X.X.X.X.zip` from the
    [Releases page](https://github.com/brunobeeee/jellyfin-add-preview-segment/releases) and extract it.
 2. Copy the extracted `Jellyfin.Plugin.PreviewSegment` folder — which contains both the DLL **and**
    `meta.json` — into your Jellyfin plugins directory:
@@ -32,7 +43,7 @@ access is involved.
 > repository"* because the plugin is not published in a plugin repository. This is cosmetic and does
 > not affect functionality.
 
-### Method 2: Build from source
+### Method 3: Build from source
 
 The project targets `net9.0` and builds against the Jellyfin 10.11 NuGet packages.
 
