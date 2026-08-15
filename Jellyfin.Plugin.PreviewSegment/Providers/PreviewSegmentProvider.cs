@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations.Enums;
+using Jellyfin.Plugin.PreviewSegment.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -71,6 +72,17 @@ public class PreviewSegmentProvider : IMediaSegmentProvider, IHasOrder
             return Array.Empty<MediaSegmentDto>();
         }
 
+        // Opt-in per-library gating. Jellyfin's native "Media Segment Providers" toggle is broken on
+        // 10.11 (web stores the provider name, the server filters by an MD5 hash of it), so we can
+        // neither be off-by-default nor be disabled by unchecking through it. We therefore honour our
+        // own EnabledLibraries list instead. Returning an empty result for a non-enabled library also
+        // makes the media segment manager delete any previews we created while it was enabled.
+        if (!IsLibraryEnabled(item))
+        {
+            _logger.LogDebug("Preview Segment is not enabled for the library of '{Name}'; skipping", item.Name);
+            return Array.Empty<MediaSegmentDto>();
+        }
+
         var libraryOptions = _libraryManager.GetLibraryOptions(item);
 
         // Resolve the manager lazily: it depends on the set of IMediaSegmentProvider instances,
@@ -110,5 +122,37 @@ public class PreviewSegmentProvider : IMediaSegmentProvider, IHasOrder
                 EndTicks = intro.StartTicks
             }
         };
+    }
+
+    /// <summary>
+    /// Determines whether Preview segments are enabled for the library that <paramref name="item"/>
+    /// belongs to, based on the plugin's own <see cref="PluginConfiguration.EnabledLibraries"/> list.
+    /// Opt-in: an empty list disables the plugin for every library.
+    /// </summary>
+    private bool IsLibraryEnabled(BaseItem item)
+    {
+        var enabled = Plugin.Instance?.Configuration.EnabledLibraries;
+        if (enabled is null || enabled.Length == 0)
+        {
+            return false;
+        }
+
+        var enabledIds = new HashSet<Guid>();
+        foreach (var id in enabled)
+        {
+            if (Guid.TryParse(id, out var guid))
+            {
+                enabledIds.Add(guid);
+            }
+        }
+
+        if (enabledIds.Count == 0)
+        {
+            return false;
+        }
+
+        // GetCollectionFolders returns the library (virtual folder) roots that contain the item;
+        // their Id equals the VirtualFolderInfo.ItemId stored by the config page.
+        return _libraryManager.GetCollectionFolders(item).Any(folder => enabledIds.Contains(folder.Id));
     }
 }
