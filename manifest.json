@@ -13,8 +13,8 @@
                 "changelog": "See the GitHub release notes for this version.",
                 "targetAbi": "10.11.0.0",
                 "sourceUrl": "https://github.com/brunobeeee/jellyfin-add-preview-segment/releases/download/v2.0.1/preview-segment_2.0.1.0.zip",
-                "checksum": "c7cc9a7d3b772baab98462e5e3d3880b",
-                "timestamp": "2026-08-15T20:19:04Z"
+                "checksum": "fc7080a58d4dcf9524ff8a56a8efb1a8",
+                "timestamp": "2026-08-15T20:24:56Z"
             },
             {
                 "version": "2.0.0.0",
