@@ -4,3 +4,9 @@ obj/
 *.suo
 .vs/
 .vscode/
+
+# Local dev-test harness runtime state (see dev-test/README.md)
+dev-test/config/
+dev-test/cache/
+dev-test/media/
+dev-test/.state/
