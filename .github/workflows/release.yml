@@ -12,109 +12,98 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout code
+      # Check out main (not the detached tag) so the updated manifest.json can be
+      # committed back. Create release tags on main's HEAD so this is the same code.
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Get version from tag
-        id: get_version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Restore dependencies
-        run: dotnet restore
-        working-directory: ./Jellyfin.Plugin.PreviewSegment
-
-      - name: Build plugin
-        run: dotnet build -c Release --no-restore
-        working-directory: ./Jellyfin.Plugin.PreviewSegment
-
-      - name: Create plugin directory structure
-        run: |
-          mkdir -p plugin-release/Jellyfin.Plugin.PreviewSegment
-          cp Jellyfin.Plugin.PreviewSegment/bin/Release/net9.0/Jellyfin.Plugin.PreviewSegment.dll \
-            plugin-release/Jellyfin.Plugin.PreviewSegment/
-
-      - name: Generate meta.json
-        run: |
-          VERSION="${{ steps.get_version.outputs.VERSION }}.0"
-          cat > plugin-release/Jellyfin.Plugin.PreviewSegment/meta.json <<EOF
-          {
-            "category": "Metadata",
-            "changelog": "See release notes for v${{ steps.get_version.outputs.VERSION }}",
-            "description": "Adds preview segments to episodes that already have intro segments",
-            "guid": "8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f",
-            "name": "Preview Segment",
-            "overview": "Adds a preview segment from 0s to the intro start for episodes with an intro.",
-            "owner": "brunobeeee",
-            "targetAbi": "10.11.0.0",
-            "framework": "net9.0",
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "version": "${VERSION}",
-            "status": "Active",
-            "autoUpdate": false,
-            "imagePath": ""
-          }
-          EOF
-          cat plugin-release/Jellyfin.Plugin.PreviewSegment/meta.json
-
-      - name: Create zip file
-        run: |
-          cd plugin-release
-          zip -r ../jellyfin-plugin-previewsegment_${{ steps.get_version.outputs.VERSION }}.zip \
-            Jellyfin.Plugin.PreviewSegment/
-          cd ..
-
-      - name: Calculate SHA256 checksum
-        id: checksum
-        run: |
-          CHECKSUM=$(sha256sum \
-            jellyfin-plugin-previewsegment_${{ steps.get_version.outputs.VERSION }}.zip | \
-            cut -d ' ' -f 1)
-          echo "CHECKSUM=$CHECKSUM" >> $GITHUB_OUTPUT
-          echo "Checksum: $CHECKSUM"
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          files: |
-            jellyfin-plugin-previewsegment_${{ steps.get_version.outputs.VERSION }}.zip
-            Jellyfin.Plugin.PreviewSegment/bin/Release/net9.0/Jellyfin.Plugin.PreviewSegment.dll
+          python-version: '3.x'
+
+      - name: Install jprm
+        run: python -m pip install --upgrade jprm
+
+      - name: Resolve versions
+        id: v
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"   # e.g. v1.1.0
+          VERSION="${TAG#v}.0"             # e.g. 1.1.0.0 (4-part, Jellyfin convention)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag: $TAG  Version: $VERSION"
+
+      # jprm builds via `dotnet publish`, embeds a meta.json generated from
+      # build.yaml, and prints the resulting zip path on stdout.
+      - name: Build plugin zip
+        id: build
+        run: |
+          mkdir -p ./artifacts
+          zipfile=$(jprm --verbosity=debug plugin build ./Jellyfin.Plugin.PreviewSegment \
+            --output=./artifacts --version="${{ steps.v.outputs.version }}" | tail -n1)
+          echo "Built: $zipfile"
+          echo "zipfile=$zipfile" >> "$GITHUB_OUTPUT"
+
+      # Appends a version entry to manifest.json with the GitHub-release download
+      # URL as sourceUrl and the zip's MD5 as checksum (what Jellyfin verifies).
+      # Use --plugin-url (full flat URL) rather than --url, which would insert a
+      # per-plugin slug subdirectory that GitHub release assets don't have.
+      - name: Add version to repository manifest
+        run: |
+          zipname=$(basename "${{ steps.build.outputs.zipfile }}")
+          jprm --verbosity=debug repo add \
+            --plugin-url="https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}/$zipname" \
+            ./manifest.json "${{ steps.build.outputs.zipfile }}"
+          echo "----- manifest.json -----"
+          cat ./manifest.json
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.build.outputs.zipfile }}
           body: |
-            ## Jellyfin Preview Segment Plugin v${{ steps.get_version.outputs.VERSION }}
+            ## Preview Segment ${{ steps.v.outputs.tag }}
 
-            ### Installation for Docker/Manual
+            ### Install via the plugin repository (recommended)
 
-            1. Download `jellyfin-plugin-previewsegment_${{ steps.get_version.outputs.VERSION }}.zip`
-            2. Extract the zip file
-            3. Copy the `Jellyfin.Plugin.PreviewSegment` folder to your
-               Jellyfin plugins directory:
-               - Docker: `/config/plugins/`
-               - Linux: `/var/lib/jellyfin/plugins/`
-               - Windows: `%PROGRAMDATA%\Jellyfin\Server\plugins\`
-            4. Restart Jellyfin
+            In Jellyfin, go to **Dashboard → Plugins → Repositories** and add:
 
-            ### Alternative: Direct DLL Installation
+            ```
+            https://raw.githubusercontent.com/${{ github.repository }}/main/manifest.json
+            ```
 
-            1. Download `Jellyfin.Plugin.PreviewSegment.dll`
-            2. Create a directory: `plugins/Jellyfin.Plugin.PreviewSegment/`
-            3. Place the DLL in that directory
-            4. Restart Jellyfin
+            Then install **Preview Segment** from **Catalog**. Future updates are
+            applied automatically by the "Update Plugins" scheduled task.
 
-            ### Checksums
+            ### Manual install (fallback)
 
-            - SHA256: `${{ steps.checksum.outputs.CHECKSUM }}`
-
-            ### What's Changed
-
-            See commit history for detailed changes.
+            Download the attached zip, extract it, and copy the
+            `Jellyfin.Plugin.PreviewSegment` folder (DLL + `meta.json`) into your
+            Jellyfin `plugins/` directory, then restart Jellyfin.
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Persist the updated manifest so the repository URL serves the new version.
+      # Requires main to allow pushes from github-actions (see RELEASE_GUIDE.md).
+      - name: Commit updated manifest to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- manifest.json; then
+            echo "manifest.json unchanged, nothing to commit."
+          else
+            git add manifest.json
+            git commit -m "Update manifest for ${{ steps.v.outputs.tag }}"
+            git push origin HEAD:main
+          fi

@@ -1,171 +1,96 @@
 # Release Guide for Maintainers
 
-This document describes how to create a new release of the Jellyfin Preview Segment Plugin using the automated GitHub workflows.
+Releasing is fully automated. Pushing a `vX.Y.Z` tag on `main` builds the plugin, publishes a GitHub
+Release, and updates the repository manifest that Jellyfin subscribes to — no manual manifest editing.
 
-## Prerequisites
+## How it works
 
-- Push access to the repository
-- Git configured on your local machine
+The [`Release Plugin`](.github/workflows/release.yml) workflow runs on any pushed `v*.*.*` tag and:
 
-## Creating a Release
+1. Builds the plugin with [jprm](https://github.com/oddstr13/jellyfin-plugin-repository-manager),
+   packaging a `preview-segment_X.Y.Z.0.zip` that contains the DLL **and** an embedded `meta.json`
+   (generated from [`Jellyfin.Plugin.PreviewSegment/build.yaml`](Jellyfin.Plugin.PreviewSegment/build.yaml)).
+2. Appends a version entry to [`manifest.json`](manifest.json) with the release download URL as
+   `sourceUrl` and the zip's **MD5** as `checksum` (Jellyfin verifies plugin zips by MD5).
+3. Publishes a GitHub Release with the zip attached.
+4. Commits the updated `manifest.json` back to `main`, so the repository URL immediately serves the
+   new version.
 
-### 1. Prepare the Release
+The repository URL users add in Jellyfin (Dashboard → Plugins → Repositories) is:
 
-Before creating a release, ensure:
-- All changes for the release are merged to the `main` branch
-- The plugin builds successfully (the build workflow should pass)
-- You've tested the plugin functionality
-
-### 2. Update Version Information (Optional)
-
-If you want to update version information in the code:
-- Update the version in `Jellyfin.Plugin.PreviewSegment/build.json`
-- Update any other version references in documentation
-
-### 3. Create and Push a Version Tag
-
-The release workflow is triggered by pushing a tag that follows semantic versioning:
-
-```bash
-# Make sure you're on the main branch and up to date
-git checkout main
-git pull origin main
-
-# Create a new tag (replace X.Y.Z with your version)
-git tag v1.0.0
-
-# Push the tag to GitHub
-git push origin v1.0.0
+```
+https://raw.githubusercontent.com/brunobeeee/jellyfin-add-preview-segment/main/manifest.json
 ```
 
-### 4. Monitor the Release Workflow
+## Creating a release
 
-1. Go to the [Actions tab](https://github.com/brunobeeee/jellyfin-add-preview-segment/actions) on GitHub
-2. You should see the "Release Plugin" workflow running
-3. Wait for the workflow to complete (usually takes 1-2 minutes)
+1. Merge everything for the release into `main` and make sure the build workflow is green.
+2. (Optional) Update the `changelog` in
+   [`Jellyfin.Plugin.PreviewSegment/build.yaml`](Jellyfin.Plugin.PreviewSegment/build.yaml). The
+   `version` field there is a placeholder — the tag drives the actual release version.
+3. From `main`, tag and push:
 
-### 5. Verify the Release
+   ```bash
+   git checkout main && git pull
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
 
-Once the workflow completes:
-1. Go to the [Releases page](https://github.com/brunobeeee/jellyfin-add-preview-segment/releases)
-2. You should see a new release with:
-   - Release title: version number
-   - Pre-packaged ZIP file: `jellyfin-plugin-previewsegment_X.Y.Z.zip`
-   - Standalone DLL: `Jellyfin.Plugin.PreviewSegment.dll`
-   - SHA256 checksum in the release notes
-   - Installation instructions
+4. Watch the [Actions tab](https://github.com/brunobeeee/jellyfin-add-preview-segment/actions). When
+   the workflow finishes, verify:
+   - a new [Release](https://github.com/brunobeeee/jellyfin-add-preview-segment/releases) with
+     `preview-segment_1.1.0.0.zip` attached, and
+   - a new commit on `main` updating `manifest.json` (the newest `versions[]` entry has a non-empty
+     `checksum` and a `sourceUrl` pointing at the release asset).
 
-### 6. Edit Release Notes (Optional)
+> **Always tag on `main`'s HEAD.** The workflow checks out `main` (not the tag) so it can commit the
+> manifest back; tag a different commit and the built code won't match the tag.
 
-You can edit the release notes to add:
-- Detailed changelog
-- Breaking changes
-- Known issues
-- Special upgrade instructions
+## Versioning
 
-### 7. Update build.json (For Plugin Repository)
+- **Git tags** use 3-part SemVer: `vX.Y.Z`.
+- The plugin/manifest version is the 4-part `X.Y.Z.0` (Jellyfin convention), derived automatically
+  from the tag.
 
-If you want to publish this plugin to a Jellyfin plugin repository:
+Follow [SemVer](https://semver.org/): MAJOR for breaking changes, MINOR for features, PATCH for fixes.
 
-1. After the release is created, copy the SHA256 checksum from the release notes
-2. Update `Jellyfin.Plugin.PreviewSegment/build.json`:
-   - Update the `version` field
-   - Update the `sourceUrl` with the correct version number
-   - Update the `checksum` with the SHA256 from the release
-   - Update the `timestamp` to the release date
-3. Commit and push the changes
+## One-time setup: allow the manifest push to `main`
 
-Example:
-```json
-{
-  "version": "1.0.0.0",
-  "changelog": "Initial release with automated builds",
-  "targetAbi": "10.11.0.0",
-  "sourceUrl": "https://github.com/brunobeeee/jellyfin-add-preview-segment/releases/download/v1.0.0/jellyfin-plugin-previewsegment_1.0.0.zip",
-  "checksum": "abc123...",
-  "timestamp": "2026-01-01T12:00:00Z"
-}
-```
+The workflow pushes the manifest commit to `main` using the default `GITHUB_TOKEN`. If `main` is a
+**protected branch**, the push will be rejected. Either:
 
-**Note**: The git tag version (e.g., `v1.0.0`) uses 3-part semantic versioning, while the plugin version in build.json uses 4-part versioning (e.g., `1.0.0.0`). The release workflow uses the 3-part version from the tag for file names.
-
-## Version Numbering
-
-Follow [Semantic Versioning](https://semver.org/):
-- **MAJOR** (X.0.0): Incompatible API changes or major features
-- **MINOR** (1.X.0): New functionality in a backward-compatible manner
-- **PATCH** (1.0.X): Backward-compatible bug fixes
-
-### Version Format Notes
-
-- **Git tags**: Use 3-part semantic versioning (e.g., `v1.0.0`)
-- **Plugin version** (in build.json): Uses 4-part versioning (e.g., `1.0.0.0`)
-- **Release files**: Named using the 3-part version from the git tag
-
-For most releases, you can use `.0` as the fourth component in build.json.
+- add an exception so `github-actions[bot]` can push to `main`, or
+- push the manifest from a Personal Access Token / deploy key with the necessary permission.
 
 ## Troubleshooting
 
-### Workflow Fails to Start
-- Ensure the tag follows the pattern `v*.*.*` (e.g., `v1.0.0`, `v2.1.3`)
-- Check that you pushed the tag: `git push origin <tag-name>`
+- **Workflow didn't start** — the tag must match `v*.*.*` and be pushed (`git push origin <tag>`).
+- **Manifest not updated on `main`** — almost always branch protection blocking the push (see above);
+  check the "Commit updated manifest to main" step logs.
+- **Jellyfin refuses to install / "checksum mismatch"** — the manifest `checksum` must be the zip's
+  MD5. jprm handles this; only relevant if a manifest entry was hand-edited.
+- **Build fails** — check the jprm/build logs; usually a compile error or an SDK mismatch (the plugin
+  targets `net9.0`).
 
-### Build Fails
-- Check the workflow logs in the Actions tab
-- Common issues:
-  - Missing dependencies
-  - Compilation errors
-  - .NET SDK version mismatch
+## Manual fallback
 
-### Release Not Created
-- Check workflow permissions (requires `contents: write`)
-- Verify `GITHUB_TOKEN` is available
-- Check workflow logs for errors
+If the workflow is unavailable, reproduce it locally with jprm:
 
-### Wrong Files in Release
-- Verify the build output path is correct
-- Check the workflow file paths in the `files:` section
+```bash
+pip install jprm
+mkdir -p ./artifacts
+zipfile=$(jprm plugin build ./Jellyfin.Plugin.PreviewSegment --output=./artifacts --version=1.1.0.0)
+jprm repo add \
+  --plugin-url="https://github.com/brunobeeee/jellyfin-add-preview-segment/releases/download/v1.1.0/$(basename "$zipfile")" \
+  ./manifest.json "$zipfile"
+```
 
-## Manual Release (Fallback)
+> Use `--plugin-url` (the full flat zip URL), **not** `--url` — the latter inserts a per-plugin
+> subdirectory that GitHub release assets don't have, producing a 404 `sourceUrl`.
 
-If the automated workflow fails, you can create a release manually:
+Then upload `$zipfile` to a GitHub Release tagged `v1.1.0` and commit the updated `manifest.json`.
 
-1. Build the plugin locally:
-   ```bash
-   cd Jellyfin.Plugin.PreviewSegment
-   dotnet build -c Release
-   ```
+## Continuous integration
 
-2. Create the directory structure:
-   ```bash
-   mkdir -p release/Jellyfin.Plugin.PreviewSegment
-   cp bin/Release/net9.0/Jellyfin.Plugin.PreviewSegment.dll release/Jellyfin.Plugin.PreviewSegment/
-   ```
-
-3. Create a ZIP file:
-   ```bash
-   cd release
-   zip -r jellyfin-plugin-previewsegment_X.Y.Z.zip Jellyfin.Plugin.PreviewSegment/
-   ```
-
-4. Calculate checksum:
-   ```bash
-   sha256sum jellyfin-plugin-previewsegment_X.Y.Z.zip
-   ```
-
-5. Create the release on GitHub manually and upload the files
-
-## Continuous Integration
-
-The build workflow runs automatically on:
-- Every push to `main` branch
-- Every pull request to `main` branch
-
-This ensures that the code always builds successfully before releases are created.
-
-## Support
-
-If you encounter issues with the release process:
-1. Check the [GitHub Actions documentation](https://docs.github.com/en/actions)
-2. Review the workflow files in `.github/workflows/`
-3. Check the Actions logs for detailed error messages
+The [build workflow](.github/workflows/build.yml) runs on every push and pull request to `main`,
+ensuring the plugin always compiles before a release is cut.

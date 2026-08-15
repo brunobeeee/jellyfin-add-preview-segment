@@ -1,0 +1,23 @@
+---
+# jprm build manifest — single source of truth for the plugin's catalog metadata.
+# The release workflow overrides `version` (and the git tag drives the release),
+# jprm embeds a meta.json built from these fields into the packaged zip, and
+# `jprm repo add` appends a version entry to the repository manifest.json.
+name: "Preview Segment"
+guid: "8f9c5d9e-7a6b-4c3d-8e1f-2a3b4c5d6e7f"
+version: "1.0.0.0"
+targetAbi: "10.11.0.0"
+framework: "net9.0"
+owner: "brunobeeee"
+overview: "Adds a Preview media segment to episodes that already have an Intro segment."
+description: >-
+  Registers a media segment provider with Jellyfin. For every supported episode
+  that already has an Intro segment, the provider returns a Preview segment from
+  the start of the episode (0s) to the beginning of the intro, so clients can
+  offer a "preview" skip. Applicability is controlled entirely by Jellyfin's own
+  per-library Media Segment Providers settings.
+category: "General"
+imageUrl: "https://raw.githubusercontent.com/brunobeeee/jellyfin-add-preview-segment/main/logo.png"
+artifacts:
+  - "Jellyfin.Plugin.PreviewSegment.dll"
+changelog: "See the GitHub release notes for this version."
