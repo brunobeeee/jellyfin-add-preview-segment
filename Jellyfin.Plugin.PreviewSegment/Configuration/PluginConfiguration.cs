@@ -1,4 +1,3 @@
-using System;
 using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.PreviewSegment.Configuration;
@@ -6,18 +5,11 @@ namespace Jellyfin.Plugin.PreviewSegment.Configuration;
 /// <summary>
 /// Plugin configuration.
 /// </summary>
+/// <remarks>
+/// This plugin no longer needs any configuration: it registers a media segment provider that
+/// Jellyfin runs automatically. Which libraries it applies to is controlled by Jellyfin's own
+/// per-library "Media Segment Providers" settings, not by this plugin.
+/// </remarks>
 public class PluginConfiguration : BasePluginConfiguration
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PluginConfiguration"/> class.
-    /// </summary>
-    public PluginConfiguration()
-    {
-        LibraryIds = Array.Empty<Guid>();
-    }
-
-    /// <summary>
-    /// Gets or sets the library IDs to process.
-    /// </summary>
-    public Guid[] LibraryIds { get; set; }
 }
