@@ -70,7 +70,7 @@ The workflow pushes the manifest commit to `main` using the default `GITHUB_TOKE
 - **Jellyfin refuses to install / "checksum mismatch"** — the manifest `checksum` must be the zip's
   MD5. jprm handles this; only relevant if a manifest entry was hand-edited.
 - **Build fails** — check the jprm/build logs; usually a compile error or an SDK mismatch (the plugin
-  targets `net9.0`).
+  targets `net10.0`).
 
 ## Manual fallback
 

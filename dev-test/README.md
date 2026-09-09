@@ -6,7 +6,7 @@ the Preview Segment plugin against the **latest** Jellyfin release. Everything e
 
 ## Requirements
 - Docker (running), `sqlite3`, `ffmpeg`, `python3`, `curl`. **No host `dotnet` needed** — the
-  plugin is built inside a `dotnet/sdk:8.0` container.
+  plugin is built inside a `dotnet/sdk:10.0` container.
 
 ## Usage
 Run the numbered scripts in order from the repo root:
@@ -68,7 +68,7 @@ under the plugin's **own registered provider id** (`MD5("preview segment")`), so
 
 Verified end-to-end on Jellyfin 10.11.11: after seeding an Intro and running **Extract Media
 Segments**, the `Preview` row is created under our provider id **and returned by the API** (the old
-approach wrote the row but it was filtered out). The plugin now targets `net9.0` / `targetAbi
-10.11.0.0` (Jellyfin 10.11 runs on .NET 9); build with the `dotnet/sdk:9.0` container. There is no
+approach wrote the row but it was filtered out). The plugin now targets `net10.0` / `targetAbi
+12.0.0.0` (Jellyfin 12.0 runs on .NET 10); build with the `dotnet/sdk:10.0` container. There is no
 longer any plugin config or custom scheduled task — enablement is per-library via Jellyfin's *Media
 Segment Providers* settings.

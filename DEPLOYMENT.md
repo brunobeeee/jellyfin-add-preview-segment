@@ -10,7 +10,7 @@ access is involved.
 
 ## Prerequisites
 
-- **Jellyfin 10.11 or later** (the plugin is built against Jellyfin 10.11.x / `net9.0`).
+- **Jellyfin 12.0 or later** (the plugin is built against Jellyfin 12.0.x / `net10.0`).
 - Episodes that already have **Intro** segments (e.g. via the Intro Skipper plugin).
 - Access to the Jellyfin plugins directory.
 
@@ -45,19 +45,19 @@ Updates are then applied automatically by the **Update Plugins** scheduled task.
 
 ### Method 3: Build from source
 
-The project targets `net9.0` and builds against the Jellyfin 10.11 NuGet packages.
+The project targets `net10.0` and builds against the Jellyfin 12.0 NuGet packages.
 
 ```bash
 cd Jellyfin.Plugin.PreviewSegment
 dotnet build -c Release
-# -> bin/Release/net9.0/Jellyfin.Plugin.PreviewSegment.dll
+# -> bin/Release/net10.0/Jellyfin.Plugin.PreviewSegment.dll
 ```
 
 No local .NET SDK? Build in a container:
 
 ```bash
 docker run --rm -v "$PWD":/src -w /src/Jellyfin.Plugin.PreviewSegment \
-  mcr.microsoft.com/dotnet/sdk:9.0 dotnet build -c Release
+  mcr.microsoft.com/dotnet/sdk:10.0 dotnet build -c Release
 ```
 
 Copy the DLL (and a `meta.json`) into a `plugins/Jellyfin.Plugin.PreviewSegment/` folder and restart Jellyfin.
@@ -104,7 +104,7 @@ Jellyfin.Server.Implementations.MediaSegments.MediaSegmentManager: Media Segment
   running the task once more guarantees the preview is generated.
 
 ### Preview created but not shown
-- Ensure you are on **Jellyfin 10.11+**; the plugin is built for the 10.11 API and `net9.0`.
+- Ensure you are on **Jellyfin 12.0+**; the plugin is built for the 12.0 API and `net10.0`.
 - Confirm the provider is enabled for the item's library (disabled providers are filtered from
   results).
 
