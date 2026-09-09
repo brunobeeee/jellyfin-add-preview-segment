@@ -22,7 +22,7 @@ correctly returned to clients (`GET /MediaSegments/{itemId}`) and shown in the p
 
 ## Requirements
 
-- **Jellyfin 10.11 or later** (built against Jellyfin 10.11.x, targeting `net9.0`).
+- **Jellyfin 12.0 or later** (built against Jellyfin 12.0.x, targeting `net10.0`).
 - Episodes must already have **Intro** segments (for example via the Intro Skipper plugin).
 
 ## Installation
@@ -67,20 +67,20 @@ Jellyfin's own per-library *Media Segment Providers* settings.
 
 ## Building from source
 
-The project targets `net9.0` and builds against the Jellyfin 10.11 NuGet packages.
+The project targets `net10.0` and builds against the Jellyfin 12.0 NuGet packages.
 
 ```bash
 cd Jellyfin.Plugin.PreviewSegment
 dotnet build -c Release
 ```
 
-The compiled DLL will be in `bin/Release/net9.0/Jellyfin.Plugin.PreviewSegment.dll`.
+The compiled DLL will be in `bin/Release/net10.0/Jellyfin.Plugin.PreviewSegment.dll`.
 
 No .NET SDK on your machine? Build it in a container:
 
 ```bash
 docker run --rm -v "$PWD":/src -w /src/Jellyfin.Plugin.PreviewSegment \
-  mcr.microsoft.com/dotnet/sdk:9.0 dotnet build -c Release
+  mcr.microsoft.com/dotnet/sdk:10.0 dotnet build -c Release
 ```
 
 ## Local end-to-end testing

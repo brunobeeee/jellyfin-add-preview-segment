@@ -64,6 +64,13 @@ public class PreviewSegmentProvider : IMediaSegmentProvider, IHasOrder
     public ValueTask<bool> Supports(BaseItem item) => ValueTask.FromResult(item is Episode);
 
     /// <inheritdoc />
+    /// <remarks>
+    /// No-op: this provider caches no analysis data. Preview segments are derived on the fly from
+    /// the item's existing Intro segment on every run, and Jellyfin owns the stored segments it prunes.
+    /// </remarks>
+    public Task CleanupExtractedData(Guid itemId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<MediaSegmentDto>> GetMediaSegments(MediaSegmentGenerationRequest request, CancellationToken cancellationToken)
     {
         var item = _libraryManager.GetItemById(request.ItemId);
